@@ -10,6 +10,7 @@ export function installInspector(game: Game) {
     const s = game.state, target = game.target()
     return structuredClone({
       ready: s.ready, activeScene: s.scene, status: s.status, missionPhase: s.phase.name,
+      graphicsState: game.graphicsState, previousFlightDiagnostic: game.diagnostics.previous,
       missionElapsedTime: s.elapsed, missionProgress: s.progress, paused: s.paused, failureReason: s.reason,
       player: { position: s.player.position, rotation: s.player.rotation, velocity: s.player.velocity, shields: s.player.shields, invulnerable: s.player.invulnerable },
       weaponCooldown: s.player.weaponCooldown, score: s.score, currentTarget: target?.id ?? null,

@@ -1,5 +1,7 @@
 # Nebula Run: Signalbreak
 
+Graphics interruption now pauses flight and offers reload; restored graphics leave the mission paused for manual resume. A bounded diagnostic checkpoint is kept locally in `localStorage['nebula-run:last-flight']` (never uploaded). The development inspector exposes `graphicsState` and `previousFlightDiagnostic`. See `.logs/crash-recovery.md` for investigation details and limitations.
+
 An original, browser-based 3D on-rails space shooter built with TypeScript, Three.js, Vite, and Playwright. Pilot the STRIX-9 interceptor through an abandoned orbital relay belt, defeat hostile drones, dodge debris, and break the blockade core. The original Kestrel-9 remains available as a fallback.
 
 ## Run locally

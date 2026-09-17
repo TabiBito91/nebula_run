@@ -7,6 +7,7 @@ import { GameState } from './state'
 import { updateMission } from './systems/spawning'
 import { move } from './systems/movement'
 import { combat } from './systems/combat'
+import { Diagnostics } from './Diagnostics'
 
 export class Game {
   state = createMission()
@@ -14,6 +15,8 @@ export class Game {
   input: Keyboard
   hud: Hud
   errors: { message: string; source: string }[] = []
+  readonly diagnostics = new Diagnostics()
+  graphicsState: 'ready' | 'lost' | 'failed' = 'ready'
   private accumulator = 0
   private lastTime = 0
   private frameId = 0
@@ -26,11 +29,37 @@ export class Game {
     this.input = new Keyboard(key => this.key(key), () => this.pause())
     this.hud = new Hud(ui, () => this.action())
     canvas.addEventListener('webglcontextlost', this.contextLost)
+    canvas.addEventListener('webglcontextrestored', this.contextRestored)
+    this.renderer.webgl.debug.onShaderError = (gl, program, vertex, fragment) => {
+      this.fail([gl.getProgramInfoLog(program), gl.getShaderInfoLog(vertex), gl.getShaderInfoLog(fragment)].join('\n'), 'shader')
+    }
     this.frameId = requestAnimationFrame(this.frame)
   }
-  private onError = (e: ErrorEvent) => { this.capture(e.message, e.filename || 'window') }
-  private onRejection = (e: PromiseRejectionEvent) => { this.capture(String(e.reason), 'unhandledrejection') }
-  private contextLost = () => { this.capture('WebGL context lost. Reload to recover.', 'renderer'); this.pause() }
+  private onError = (e: ErrorEvent) => { this.capture(e.message, e.filename || 'window'); if (this.renderer) this.recordDiagnostic(true) }
+  private onRejection = (e: PromiseRejectionEvent) => { this.capture(String(e.reason), 'unhandledrejection'); if (this.renderer) this.recordDiagnostic(true) }
+  private contextLost = (event: Event) => {
+    event.preventDefault()
+    this.graphicsState = 'lost'; this.pause()
+    this.capture('WebGL context lost', 'renderer'); this.recordDiagnostic(true)
+    this.diagnostics.show('Graphics connection interrupted. Your flight is paused while graphics recover. You can also reload the game.')
+  }
+  private contextRestored = () => {
+    if (this.graphicsState !== 'lost') return
+    this.graphicsState = 'ready'; this.lastTime = 0; this.accumulator = 0
+    this.diagnostics.hide(); this.recordDiagnostic(true)
+    // Remain paused so restoration cannot cause an unseen collision.
+  }
+  private fail(message: string, source: string) {
+    this.graphicsState = 'failed'; this.pause(); this.capture(message, source)
+    this.recordDiagnostic(true)
+    this.diagnostics.show('Flight stopped after an unexpected error. A diagnostic report was saved on this device. Reload to return to the menu.')
+  }
+  private recordDiagnostic(force = false) {
+    this.diagnostics.record({ graphicsState: this.graphicsState, scene: this.state.scene, status: this.state.status,
+      time: this.state.elapsed, events: this.state.events.slice(-20), errors: this.errors,
+      metrics: this.renderer.metrics, ship: { status: this.renderer.strix.status, error: this.renderer.strix.error },
+      viewport: { width: innerWidth, height: innerHeight, pixelRatio: devicePixelRatio } }, force)
+  }
   capture(message: string, source: string) { this.errors.push({ message, source }); if (this.errors.length > 50) this.errors.shift() }
   private key(key: string) {
     if (key === 'KeyP' || key === 'Escape') { if (this.state.status === 'playing') this.state.paused ? this.resume() : this.pause() }
@@ -43,6 +72,7 @@ export class Game {
     else this.state.paused ? this.resume() : this.pause()
   }
   start(restarted = false) {
+    if (this.graphicsState !== 'ready') return
     this.replace(createMission(true))
     if (restarted) this.state.event('game-restarted')
   }
@@ -55,6 +85,7 @@ export class Game {
     this.input.clear(); this.accumulator = 0
   }
   resume() {
+    if (this.graphicsState !== 'ready') return
     if (this.state.status === 'playing') { this.state.paused = false; this.input.clear(); this.accumulator = 0 }
   }
   target() {
@@ -63,6 +94,8 @@ export class Game {
   }
   private frame = (time: number) => {
     if (this.disposed) return
+    if (this.graphicsState !== 'ready') { this.frameId = requestAnimationFrame(this.frame); return }
+    try {
     const wallDt = this.lastTime ? (time - this.lastTime) / 1000 : CONFIG.step
     this.lastTime = time
     const s = this.state
@@ -79,11 +112,15 @@ export class Game {
     this.renderer.render(s, s.paused || s.status !== 'playing' ? 1 : this.accumulator / CONFIG.step, wallDt, simulatedDt)
     this.hud.update(s, this.renderer.reticle, this.target()?.id ?? null, this.renderer.activeShip)
     s.ready = this.renderer.strix.status !== 'pending'
+    this.recordDiagnostic()
+    } catch (error) { this.fail(error instanceof Error ? error.stack || error.message : String(error), 'frame') }
     this.frameId = requestAnimationFrame(this.frame)
   }
   dispose() {
     this.disposed = true; cancelAnimationFrame(this.frameId); this.input.dispose()
     this.renderer.webgl.domElement.removeEventListener('webglcontextlost', this.contextLost)
+    this.renderer.webgl.domElement.removeEventListener('webglcontextrestored', this.contextRestored)
+    this.diagnostics.dispose()
     this.renderer.dispose()
     window.removeEventListener('error', this.onError); window.removeEventListener('unhandledrejection', this.onRejection)
   }
