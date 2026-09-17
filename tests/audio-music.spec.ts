@@ -1,0 +1,47 @@
+import { test, expect, state } from './support'
+
+test('audio waits for interaction, persists settings, and leaves volume keys out of gameplay', async ({ page }) => {
+  await page.goto('/')
+  await page.waitForFunction(() => window.__GAME_INSPECTOR__?.getState().ready)
+  expect((await state(page)).audio.initialized).toBe(false)
+  await page.getByRole('button', { name: 'Audio', exact: true }).click()
+  await page.waitForFunction(() => window.__GAME_INSPECTOR__!.getState().audio.musicStatus === 'playing')
+  expect((await state(page)).audio.activeLoops).toEqual(['music:menu'])
+  await page.getByRole('slider', { name: 'Music volume' }).fill('24')
+  await page.getByRole('slider', { name: 'Master volume' }).fill('65')
+  await page.getByRole('button', { name: 'Mute audio', exact: true }).click()
+  expect((await state(page)).audio.muted).toBe(true)
+  await page.reload()
+  await page.waitForFunction(() => window.__GAME_INSPECTOR__?.getState().ready)
+  expect((await state(page)).audio).toMatchObject({ music: .24, master: .65, muted: true, initialized: false })
+  await page.keyboard.press('Enter')
+  await page.getByRole('button', { name: 'Audio', exact: true }).click()
+  const slider = page.getByRole('slider', { name: 'Music volume' })
+  await slider.focus(); await page.keyboard.down('ArrowRight')
+  await page.waitForFunction(() => window.__GAME_INSPECTOR__!.getState().missionElapsedTime > .3)
+  await page.keyboard.up('ArrowRight')
+  expect((await state(page)).player.position.x).toBe(0)
+  await page.getByRole('button', { name: 'Unmute audio', exact: true }).click()
+  expect((await state(page)).audio.muted).toBe(false)
+})
+
+test('music pauses at an offset, resumes, and scene resets never duplicate loops', async ({ page }) => {
+  await page.goto('/')
+  await page.waitForFunction(() => window.__GAME_INSPECTOR__?.getState().ready)
+  await page.keyboard.press('Enter')
+  await page.waitForFunction(() => window.__GAME_INSPECTOR__!.getState().audio.musicStatus === 'playing')
+  await page.keyboard.press('KeyP')
+  const paused = (await state(page)).audio.musicPosition
+  await page.waitForFunction(() => window.__GAME_INSPECTOR__!.getState().audio.activeSoundCount === 0)
+  expect((await state(page)).audio.musicPosition).toBe(paused)
+  await page.keyboard.press('KeyP')
+  await page.waitForFunction(t => window.__GAME_INSPECTOR__!.getState().audio.musicPosition > t + .1, paused)
+  for (let i = 0; i < 4; i++) {
+    await page.evaluate(() => window.__GAME_INSPECTOR__!.loadScene('basic-flight'))
+    await page.keyboard.press('KeyP')
+    await page.waitForFunction(() => window.__GAME_INSPECTOR__!.getState().audio.activeLoops.includes('music:flight'))
+  }
+  expect((await state(page)).audio.activeLoops.filter(id => id.startsWith('music:'))).toEqual(['music:flight'])
+  expect((await state(page)).audio.failedLoads).toEqual([])
+  expect((await state(page)).audio.bufferBytes).toBeLessThan(24 * 1024 * 1024)
+})

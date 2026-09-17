@@ -11,6 +11,7 @@ export class Keyboard {
     document.addEventListener('visibilitychange', this.visibility)
   }
   private down = (event: KeyboardEvent) => {
+    if (event.target instanceof Element && event.target.closest('[data-audio-controls]')) return
     if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Escape'].includes(event.code)) event.preventDefault()
     this.held.add(event.code)
     if (!event.repeat) this.onAction(event.code)

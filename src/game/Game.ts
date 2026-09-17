@@ -8,6 +8,8 @@ import { updateMission } from './systems/spawning'
 import { move } from './systems/movement'
 import { combat } from './systems/combat'
 import { Diagnostics } from './Diagnostics'
+import { AudioSession } from './audio/AudioSession'
+import { AudioControls } from './ui/AudioControls'
 
 export class Game {
   state = createMission()
@@ -16,6 +18,8 @@ export class Game {
   hud: Hud
   errors: { message: string; source: string }[] = []
   readonly diagnostics = new Diagnostics()
+  readonly audio = new AudioSession()
+  private audioControls: AudioControls
   graphicsState: 'ready' | 'lost' | 'failed' = 'ready'
   private accumulator = 0
   private lastTime = 0
@@ -28,6 +32,7 @@ export class Game {
     this.renderer = new Renderer(canvas)
     this.input = new Keyboard(key => this.key(key), () => this.pause())
     this.hud = new Hud(ui, () => this.action())
+    this.audioControls = new AudioControls(this.audio.manager, () => this.input.clear())
     canvas.addEventListener('webglcontextlost', this.contextLost)
     canvas.addEventListener('webglcontextrestored', this.contextRestored)
     this.renderer.webgl.debug.onShaderError = (gl, program, vertex, fragment) => {
@@ -83,6 +88,7 @@ export class Game {
   pause() {
     if (this.state.status === 'playing') this.state.paused = true
     this.input.clear(); this.accumulator = 0
+    this.audio.manager.setPaused(true)
   }
   resume() {
     if (this.graphicsState !== 'ready') return
@@ -94,7 +100,7 @@ export class Game {
   }
   private frame = (time: number) => {
     if (this.disposed) return
-    if (this.graphicsState !== 'ready') { this.frameId = requestAnimationFrame(this.frame); return }
+    if (this.graphicsState !== 'ready') { this.audio.manager.setPaused(true); this.frameId = requestAnimationFrame(this.frame); return }
     try {
     const wallDt = this.lastTime ? (time - this.lastTime) / 1000 : CONFIG.step
     this.lastTime = time
@@ -109,6 +115,7 @@ export class Game {
         this.accumulator -= CONFIG.step; simulatedDt += CONFIG.step
       }
     } else this.accumulator = 0
+    this.audio.update(s, this.graphicsState === 'ready')
     this.renderer.render(s, s.paused || s.status !== 'playing' ? 1 : this.accumulator / CONFIG.step, wallDt, simulatedDt)
     this.hud.update(s, this.renderer.reticle, this.target()?.id ?? null, this.renderer.activeShip)
     s.ready = this.renderer.strix.status !== 'pending'
@@ -118,6 +125,7 @@ export class Game {
   }
   dispose() {
     this.disposed = true; cancelAnimationFrame(this.frameId); this.input.dispose()
+    this.audioControls.dispose(); this.audio.dispose()
     this.renderer.webgl.domElement.removeEventListener('webglcontextlost', this.contextLost)
     this.renderer.webgl.domElement.removeEventListener('webglcontextrestored', this.contextRestored)
     this.diagnostics.dispose()
