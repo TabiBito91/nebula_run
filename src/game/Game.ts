@@ -32,7 +32,7 @@ export class Game {
     this.renderer = new Renderer(canvas)
     this.audio = new AudioSession()
     this.input = new Keyboard(key => this.key(key), () => this.pause())
-    this.hud = new Hud(ui, () => this.action())
+    this.hud = new Hud(ui, () => this.action(), () => this.returnToMenu())
     this.audioControls = new AudioControls(this.audio.manager, () => this.input.clear())
     canvas.addEventListener('webglcontextlost', this.contextLost)
     canvas.addEventListener('webglcontextrestored', this.contextRestored)
@@ -83,8 +83,14 @@ export class Game {
     if (restarted) this.state.event('game-restarted')
   }
   replace(s: GameState) {
+    this.hud.closeQuitDialog()
     this.input.clear(); this.accumulator = 0
     s.generation = ++this.generation; this.state = s
+  }
+  returnToMenu() {
+    if (this.graphicsState !== 'ready') return
+    this.replace(createMission())
+    this.audio.update(this.state, true)
   }
   pause() {
     const audiblePause = this.state.status === 'playing' && !this.state.paused

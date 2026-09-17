@@ -13,7 +13,8 @@ export class Hud {
   private reticle: HTMLElement
   private core: HTMLElement
   private previousOverlay = ''
-  constructor(root: HTMLElement, action: () => void) {
+  private quitDialog: HTMLDialogElement
+  constructor(root: HTMLElement, action: () => void, returnToMenu: () => void) {
     this.root = root
     root.innerHTML = `
       <header class="topbar"><div class="brand"><span class="brand-mark">⌁</span> NEBULA<span class="brand-light">RUN</span><small>SIGNALBREAK</small></div><div class="mission-tag"><i></i> SOLO SORTIE <span> / </span> NR—01</div><button class="pause-button" aria-label="Pause or resume">Ⅱ <span>PAUSE</span></button></header>
@@ -27,8 +28,29 @@ export class Hud {
     this.score = el('score'); this.shields = el('shields'); this.fill = el('shield-fill'); this.progress = el('progress')
     this.phase = el('phase'); this.hint = el('hint'); this.time = el('time'); this.overlay = el('overlay'); this.reticle = el('reticle'); this.core = el('core')
     root.querySelector('button')!.addEventListener('click', () => { action(); (document.activeElement as HTMLElement)?.blur() })
-    this.overlay.addEventListener('click', event => { if ((event.target as HTMLElement).closest('button')) { action(); (document.activeElement as HTMLElement)?.blur() } })
+    this.quitDialog = document.createElement('dialog')
+    this.quitDialog.className = 'quit-dialog end-card'
+    this.quitDialog.dataset.quitDialog = ''
+    this.quitDialog.setAttribute('aria-labelledby', 'quit-heading')
+    this.quitDialog.setAttribute('aria-describedby', 'quit-description')
+    this.quitDialog.innerHTML = `<div class="eyebrow">LEAVE CURRENT MISSION</div><h2 id="quit-heading">End this sortie?</h2><p id="quit-description">Your current progress and score will be lost.</p><button class="launch" data-cancel autofocus>Keep Playing</button><button class="menu-secondary" data-confirm>Return to Menu</button>`
+    root.append(this.quitDialog)
+    this.quitDialog.querySelector('[data-cancel]')!.addEventListener('click', () => this.closeQuitDialog())
+    this.quitDialog.querySelector('[data-confirm]')!.addEventListener('click', () => { this.closeQuitDialog(); returnToMenu() })
+    this.overlay.addEventListener('click', event => {
+      const button = (event.target as HTMLElement).closest('button')
+      if (!button) return
+      if (button.hasAttribute('data-quit')) {
+        this.quitDialog.showModal()
+        this.quitDialog.querySelector<HTMLButtonElement>('[data-cancel]')!.focus()
+      } else {
+        if (button.hasAttribute('data-menu')) returnToMenu()
+        else action()
+        ;(document.activeElement as HTMLElement)?.blur()
+      }
+    })
   }
+  closeQuitDialog() { if (this.quitDialog.open) this.quitDialog.close() }
   update(s: GameState, reticle: { x: number; y: number }, target: string | null, ship: 'strix'|'legacy' = 'legacy') {
     const shipName=ship==='strix'?'STRIX—9':'KESTREL—9'
     this.root.querySelector('.shield-module small')!.textContent=ship==='strix'?'INTERCEPTOR / STRIX-9':'COURIER / KESTREL-9'
@@ -54,6 +76,13 @@ export class Hud {
     } else {
       const won = s.status === 'mission-complete'
       this.overlay.innerHTML = `<div class="end-card"><div class="eyebrow">${won ? 'MISSION COMPLETE / SIGNAL RESTORED' : 'SORTIE ENDED / SIGNAL LOST'}</div><h2>${won ? 'The way is open.' : 'Out of the fight.'}</h2><p>${won ? 'Blockade disabled. The relay is transmitting again.' : s.reason}</p><div class="final-score">${String(s.score).padStart(6, '0')}<small>FLIGHT SCORE</small></div><button class="launch">FLY AGAIN <span>↗</span></button><small>PRESS R TO RESTART</small></div>`
+    }
+    if (s.status !== 'title') {
+      const menu = document.createElement('button')
+      menu.className = 'menu-secondary'
+      menu.textContent = s.status === 'playing' ? 'Return to Main Menu' : 'Main Menu'
+      menu.setAttribute(s.status === 'playing' ? 'data-quit' : 'data-menu', '')
+      this.overlay.querySelector('.end-card')!.append(menu)
     }
   }
 }

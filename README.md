@@ -22,6 +22,8 @@ Open the local address printed by Vite, normally `http://127.0.0.1:5173/`.
 - `Enter`: launch from the title screen
 - `R`: restart after a completed or failed sortie
 
+To leave a sortie, pause with P/Escape and choose **Return to Main Menu**. Confirm **Return to Menu** to discard its progress and score. **Keep Playing** or Escape cancels the confirmation and leaves the sortie paused; resume when ready. Victory and game-over screens offer **Main Menu** directly. Returning clears flight state and gameplay sounds without reloading; audio preferences and the selected ship are retained.
+
 ## Tests
 
 ```powershell
