@@ -89,4 +89,18 @@ The first playable sortie is a roughly 150-second arcade route: straight attacke
 
 ### Known limitations
 
-This first release has no audio, gamepad/touch support, save data, online services, accessibility remapping, or configurable graphics settings. Performance depends on browser WebGL support and the local GPU.
+This release has temporary procedural audio, but no gamepad/touch support, saved mission progress, online services, accessibility remapping, or configurable graphics settings. Performance depends on browser WebGL support and the local GPU.
+
+## Music and sound effects
+
+Click Launch or press a gameplay key to unlock audio. Open **Audio** at the upper right to adjust master, music and sound-effects volumes or mute. Defaults are 80%, 35%, and 70%; settings persist on this device. Keyboard interaction with the panel does not steer or fire. Escape closes it.
+
+A centralized native Web Audio manager owns seven category buses, bounded voices, cached buffers, restrained stereo placement, crossfades and music ducking. Menu, flight, combat, boss, victory and failure music follow game state. Pause preserves playback position; hidden tabs suspend audio; restarting replaces loops instead of stacking them. Audio failures are isolated from gameplay and missing recordings fall back to generated buffers.
+
+All six music cues and 19 sound effects are **original temporary procedural audio**, not final mastered recordings. There are no third-party audio downloads. See `public/audio/ASSETS.md` for the complete asset/rights ledger, recommended final filenames, durations, formats, loop points and replacement instructions. Mute restores silent play; the pre-audio Git checkpoint is `457af80`.
+
+Development-only audio scenes (paused on load): `audio-flight`, `audio-firing`, `audio-dodge-shoot`, `audio-boost`, `audio-enemy-fire`, `audio-impacts`, `audio-damage`, `audio-transition`, `audio-boss`, `audio-pause`, `audio-restart`, `audio-victory`, and `audio-failed-load`. Use `/?testScene=audio-firing`, press P, then hold Space. Dodge/boost scenes are audio previews only: no new abilities or changed movement. Target confirmation is not a homing mechanic; damage remains shield-only.
+
+Inspector `getState().audio` includes initialization/unlock state, track/state/status/position, persisted gains, active voices/loops, engine/preview boost, recent events, transition, load failures, buffer memory, latency and output peak. The dev-only `startAudioCapture()` / `stopAudioCapture()` helpers record up to 60 seconds for review. Production includes neither these helpers nor fixture controls.
+
+Run `node tools/inspect-audio.mjs` with Vite running to capture keyboard-driven review scenes, output recordings, screenshots and metrics under `.logs/audio-review/`. Run `npx playwright test tests/audio*.spec.ts --project=game` for focused checks. Full game and production commands above include audio regression coverage. See `.logs/audio-implementation.md` for measured results and remaining listening limitations.

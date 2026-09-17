@@ -18,7 +18,7 @@ export class Game {
   hud: Hud
   errors: { message: string; source: string }[] = []
   readonly diagnostics = new Diagnostics()
-  readonly audio = new AudioSession()
+  readonly audio: AudioSession
   private audioControls: AudioControls
   graphicsState: 'ready' | 'lost' | 'failed' = 'ready'
   private accumulator = 0
@@ -30,6 +30,7 @@ export class Game {
     window.addEventListener('error', this.onError)
     window.addEventListener('unhandledrejection', this.onRejection)
     this.renderer = new Renderer(canvas)
+    this.audio = new AudioSession()
     this.input = new Keyboard(key => this.key(key), () => this.pause())
     this.hud = new Hud(ui, () => this.action())
     this.audioControls = new AudioControls(this.audio.manager, () => this.input.clear())
@@ -86,13 +87,15 @@ export class Game {
     s.generation = ++this.generation; this.state = s
   }
   pause() {
+    const audiblePause = this.state.status === 'playing' && !this.state.paused
     if (this.state.status === 'playing') this.state.paused = true
     this.input.clear(); this.accumulator = 0
     this.audio.manager.setPaused(true)
+    if (audiblePause) this.audio.manager.play('pause')
   }
   resume() {
     if (this.graphicsState !== 'ready') return
-    if (this.state.status === 'playing') { this.state.paused = false; this.input.clear(); this.accumulator = 0 }
+    if (this.state.status === 'playing') { this.state.paused = false; this.input.clear(); this.accumulator = 0; this.audio.manager.setPaused(false); this.audio.manager.play('resume') }
   }
   target() {
     const p = this.state.player.position

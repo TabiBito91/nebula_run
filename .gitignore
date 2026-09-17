@@ -27,3 +27,4 @@ test-results/
 playwright-report/
 .logs/strix-review/
 .logs/environment-review/
+.logs/audio-review/

@@ -1,11 +1,14 @@
 import type { Game } from '../Game'
 import { createFixture, SCENES } from '../scenes/fixtures'
 import { ShipShowcase } from './ShipShowcase'
+import { installAudioFixtures, createAudioRecorder } from './AudioFixtures'
 
 export function installInspector(game: Game) {
+  installAudioFixtures(game.audio)
+  const audioRecorder = createAudioRecorder(game.audio)
   const showcase = new ShipShowcase(game)
   const originalDispose = game.dispose.bind(game)
-  game.dispose = () => { showcase.dispose(); originalDispose() }
+  game.dispose = () => { audioRecorder.dispose(); showcase.dispose(); originalDispose() }
   const snapshot = () => {
     const s = game.state, target = game.target()
     return structuredClone({
@@ -37,6 +40,8 @@ export function installInspector(game: Game) {
     })
   }
   const inspector = {
+    startAudioCapture: () => audioRecorder.start(), stopAudioCapture: () => audioRecorder.stop(),
+    testMissingAudio: () => game.audio.manager.load('music:flight', 'audio/__missing-test__.wav'),
     getShipReview: () => showcase.inspect(),
     setShipView: (view: string) => showcase.setView(view),
     setShipVariant: (variant: string) => showcase.setVariant(variant),

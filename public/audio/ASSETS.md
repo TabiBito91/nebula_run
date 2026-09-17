@@ -9,6 +9,19 @@ Music IDs: `music:menu`, `music:flight`, `music:combat`, `music:boss`, `music:vi
 - Victory/failure: four-second, non-looping resolutions.
 - Direction: restrained synth harmony, melodic pulses, bass and percussion. All notes and rhythms are authored in the generator.
 
+Sound-effect IDs (all share the creator, license status, attribution and temporary designation above):
+- `playerShot`: primary twin-emitter volley; `enemyShot`: hostile weapon pulse.
+- `hit`: quiet enemy/debris contact; `shield`: player shield damage.
+- `explosion`: ordinary drone destruction; `coreExplosion`: blockade core destruction.
+- `engine`: seamless two-second thrust loop, reacting to steering speed.
+- `dodge`: future dodge preview only; `boostStart` and `boostEnd`: future boost preview only. Sustained boost preview modulates `engine`.
+- `lock`: stable target acquisition, not a homing-lock mechanic.
+- `critical`: low shields; `bossWarning`: core introduction.
+- `launch`: start/restart confirmation; `confirm`: audio-panel selection; `pause` and `resume`: flight suspension and continuation.
+- `victory` and `failure`: ending notifications accompanying the music resolutions.
+
+To replace any effect, use `public/audio/sfx/<ID>.wav` (e.g. `playerShot.wav`) and set that definition's URL. Most effects are 0.16–0.9 seconds; `coreExplosion` is 1.5 seconds. Preserve short attacks for weapons, smooth start/end envelopes, and seamless loop points for `engine`. A mono source is recommended for ordinary effects; the manager applies restrained stereo placement. Reference imagery and third-party game assets were not used for audio.
+
 ## Replace a placeholder
 
 Place recordings in `public/audio/music/` or `public/audio/sfx/`. Set `url` in the corresponding definition in `src/game/audio/manifest.ts`, e.g. `audio/music/flight.ogg`; optionally set `fallbackUrl` to an MP3 or WAV alternative. Paths resolve against Vite BASE_URL. Provide `loopStart`/`loopEnd` in decoded seconds for exact loop boundaries; defaults use the whole file. Keep the stable ID so gameplay does not change. Remove a URL to restore procedural audio. Failed or rejected recordings also fall back to the procedural buffer.

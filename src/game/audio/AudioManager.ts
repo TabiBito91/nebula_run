@@ -1,6 +1,6 @@
 import { definition, MIX, MUSIC, SOUNDS, type Bus, type MusicState } from './manifest'
 import { readSettings, saveSettings, cleanSettings, type AudioSettings } from './settings'
-import { SAMPLE_RATE, synthesize } from './procedural'
+import { SAMPLE_RATE, synthesize, prepareMusic } from './procedural'
 
 type Voice = { id: string; source: AudioBufferSourceNode; gain: GainNode; pan: StereoPannerNode; bus: Bus; priority: number; start: number; offset: number; loop: boolean; stopping: boolean }
 export class AudioManager {
@@ -27,7 +27,7 @@ export class AudioManager {
   private musicEnded = false
   private transition: { from: MusicState | null; to: MusicState; end: number } | null = null
   private sequence = 0
-  private events: { sequence: number; time: number; type: string; sound?: string; detail?: string }[] = []
+  private events: { sequence: number; time: number; wallTime: number; type: string; sound?: string; detail?: string }[] = []
   private failures: { id: string; message: string }[] = []
   private settings = readSettings()
   private blocked = false
@@ -37,6 +37,7 @@ export class AudioManager {
   private enginePower = 0
   private boostPreview = false
   onSettingsChange?: () => void
+  get available() { return !this.blocked && !this.disposed }
   constructor() {
     window.addEventListener('pointerdown', this.gesture, true)
     window.addEventListener('keydown', this.gesture, true)
@@ -53,7 +54,7 @@ export class AudioManager {
     else if (this.unlocked) void this.unlock()
   }
   private log(type: string, sound?: string, detail?: string) {
-    this.events.push({ sequence: ++this.sequence, time: this.context?.currentTime ?? 0, type, sound, detail })
+    this.events.push({ sequence: ++this.sequence, time: this.context?.currentTime ?? 0, wallTime: performance.now(), type, sound, detail })
     if (this.events.length > 200) this.events.shift()
   }
   private error(id: string, error: unknown) {
@@ -80,7 +81,7 @@ export class AudioManager {
           }
           this.applySettings()
           // Small SFX buffers are ready before the first simulation update; music prepares progressively.
-          for (const id of Object.keys(SOUNDS)) this.proceduralBuffer(id)
+          for (const id of Object.keys(SOUNDS)) if (!SOUNDS[id].url) this.proceduralBuffer(id)
         }
         await this.context.resume()
         if (this.disposed) return
@@ -130,7 +131,12 @@ export class AudioManager {
         } catch (error) { if (!this.disposed) this.error(id, `${url}: ${error}`) }
         finally { clearTimeout(timeout); this.controllers.delete(controller) }
       }
-      if (!loaded && !this.disposed) this.proceduralBuffer(id)
+      if (!loaded && !this.disposed && !this.buffers.has(id)) {
+        if (id.startsWith('music:')) {
+          const samples = await prepareMusic(id)
+          if (!this.disposed) { const buffer = this.context!.createBuffer(1, samples.length, SAMPLE_RATE); buffer.copyToChannel(samples, 0); this.buffers.set(id, buffer) }
+        } else this.proceduralBuffer(id)
+      }
     })().finally(() => this.loading.delete(id))
     this.loading.set(id, task)
     return task
@@ -141,8 +147,9 @@ export class AudioManager {
   }
   private start(id: string, offset = 0, pan = 0, variation = 1): Voice | null {
     const ctx = this.context, def = definition(id), buffer = this.buffers.get(id)
-    if (!ctx || !this.unlocked || ctx.state !== 'running' || this.hidden || !def || !buffer) return null
+    if (!ctx || !this.unlocked || this.blocked || ctx.state !== 'running' || this.hidden || !def || !buffer) return null
     const now = ctx.currentTime
+    if (this.voices.size >= MIX.voiceLimit || (def.priority < 8 && this.voices.size >= MIX.voiceLimit - 4)) { this.log('voice-dropped', id); return null }
     if (now < (this.cooldowns.get(id) ?? -1)) return null
     const live = [...this.voices].filter(v => !v.stopping)
     if (live.filter(v => v.id === id).length >= def.max) return null
@@ -211,6 +218,8 @@ export class AudioManager {
     if (this.paused && definition(id)?.bus !== 'ui') return
     this.start(id, 0, pan, variation)
   }
+  /** Isolate audio failure from flight simulation and expose it in diagnostics. */
+  disable(error: unknown) { this.error('runtime', error); this.blocked = true; this.setPaused(true); void this.context?.suspend().catch(() => {}); this.onSettingsChange?.() }
   stopTransient() { for (const voice of this.voices) if (!voice.loop && voice.bus !== 'music') this.stop(voice) }
   stopEngine() { if (this.engine) this.stop(this.engine, .08); this.engine = null; this.enginePower = 0; this.boostPreview = false }
   setEngine(power: number, boost = false) {
@@ -219,7 +228,7 @@ export class AudioManager {
     if (!this.engine || this.engine.stopping) this.engine = this.start('engine')
     if (this.engine) {
       this.engine.source.playbackRate.setTargetAtTime(.9 + this.enginePower * .22 + (boost ? .3 : 0), this.context!.currentTime, .12)
-      this.engine.gain.gain.setTargetAtTime(.045 + this.enginePower * .025 + (boost ? .025 : 0), this.context!.currentTime, .12)
+      this.engine.gain.gain.setTargetAtTime(SOUNDS.engine.gain * (.75 + this.enginePower * .42 + (boost ? .42 : 0)), this.context!.currentTime, .12)
     }
   }
   duck() {
@@ -236,8 +245,15 @@ export class AudioManager {
     this.ramp(this.master.gain, this.settings.muted ? 0 : this.settings.master)
     this.ramp(this.musicBus.gain, this.settings.music); this.ramp(this.sfx.gain, this.settings.sfx)
   }
+  /** Development inspection connects its recorder here; normal gameplay never calls it. */
+  captureOutput() {
+    if (!this.context || !this.unlocked) throw new Error('Unlock audio before recording')
+    const destination = this.context.createMediaStreamDestination()
+    this.analyser.connect(destination)
+    return { stream: destination.stream, disconnect: () => { this.analyser.disconnect(destination); destination.stream.getTracks().forEach(track => track.stop()) } }
+  }
   update() {
-    if (this.disposed) return
+    if (this.disposed || this.blocked) return
     this.syncMusic()
     if (this.context && this.transition && this.context.currentTime >= this.transition.end) this.transition = null
     if (this.analyser && this.context?.state === 'running') {

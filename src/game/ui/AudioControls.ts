@@ -12,7 +12,7 @@ export class AudioControls {
       <button type="button" data-mute>Mute audio</button><small>Original procedural preview soundtrack</small></section>`
     document.body.append(this.root)
     const toggle = this.root.querySelector('button')!, panel = this.root.querySelector('section')!
-    toggle.onclick = () => { panel.hidden = !panel.hidden; toggle.setAttribute('aria-expanded', String(!panel.hidden)); clearInput() }
+    toggle.onclick = () => { panel.hidden = !panel.hidden; toggle.setAttribute('aria-expanded', String(!panel.hidden)); clearInput(); audio.play('confirm') }
     this.root.addEventListener('focusin', clearInput)
     this.root.addEventListener('keydown', event => { if (event.key === 'Escape') { panel.hidden = true; toggle.setAttribute('aria-expanded', 'false'); toggle.blur() } })
     this.root.querySelectorAll<HTMLInputElement>('input').forEach(input => {
