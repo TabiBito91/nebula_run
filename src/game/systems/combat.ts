@@ -2,6 +2,7 @@ import { CONFIG } from '../config'
 import { vec, type Vec3 } from '../entities/types'
 import { GameState } from '../state'
 import { intersects } from './collisions'
+import { LEGACY_MUZZLES, rotatedMuzzles } from '../shipConfig'
 
 export function projectile(s: GameState, owner: 'player' | 'enemy', position: Vec3, velocity: Vec3) {
   if (s.projectiles.length >= CONFIG.maxProjectiles) return
@@ -14,10 +15,11 @@ export function damagePlayer(s: GameState, damage: number, source: string) {
   s.event('player-hit', { source, damage, shields: s.player.shields })
   if (s.player.shields === 0) s.finish(false, 'Your shields collapsed. The signal is still out there.')
 }
-export function combat(s: GameState, fire: boolean) {
+export function combat(s: GameState, fire: boolean, strix = false) {
   const p = s.player
   if (fire && p.weaponCooldown <= 0) {
-    for (const offset of [-0.42, 0.42]) projectile(s, 'player', vec(p.position.x + offset, p.position.y, -1.5), vec(0, 0, -CONFIG.projectileSpeed))
+    const muzzles = strix ? rotatedMuzzles(p.rotation.x,p.rotation.z) : LEGACY_MUZZLES
+    for (const offset of muzzles) projectile(s, 'player', vec(p.position.x + offset.x, p.position.y + offset.y, p.position.z + offset.z), vec(0, 0, -CONFIG.projectileSpeed))
     p.weaponCooldown = CONFIG.fireInterval
     s.event('weapon-fired', { owner: 'player', position: { ...p.position } })
   }

@@ -25,7 +25,7 @@ export const test = base.extend<{ audit: string[] }>({
 export { expect }
 export const state = (page: Page): Promise<Snapshot> => page.evaluate(() => window.__GAME_INSPECTOR__!.getState())
 export async function scene(page: Page, name: string) {
-  await page.goto(`/?testScene=${name}`)
+  await page.goto(`/?testScene=${name}&ship=strix`)
   await page.waitForFunction(expected => {
     const s = window.__GAME_INSPECTOR__?.getState()
     return s?.ready && s.pendingAssets === 0 && s.activeScene === expected

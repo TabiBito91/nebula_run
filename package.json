@@ -5,6 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "ship:build": "node tools/build-strix.mjs",
+    "ship:inspect": "node tools/inspect-strix.mjs",
     "build": "tsc && vite build",
     "preview": "vite preview",
     "test:e2e": "playwright test --project=game",

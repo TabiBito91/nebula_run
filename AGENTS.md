@@ -17,3 +17,5 @@
 - Artifacts: test-results/ (screenshots, traces, videos, JSON), playwright-report/ (HTML), .logs/ (meaningful architecture/verification notes).
 - No copied franchise content, external assets, AI APIs or required API keys.
 - Preserve user changes. Use configured Git identity. Do not create nested project folders.
+- STRIX-9 implementation was approved. Preserve the procedural ship as a selectable and automatic asset-failure fallback. Regenerate its GLB using `npm run ship:build`; inspect it using `npm run ship:inspect` with Vite running. Ship selection uses `?ship=strix` or `?ship=legacy`.
+- Ship review methods: getShipReview/setShipView/setShipVariant. Named views: front, rear, rear-three-quarter, side, top, gameplay. `candidate` means STRIX-9. Keep radius 0.65; STRIX muzzles (±1.22, -0.16, -0.617) follow pitch/bank, legacy muzzles remain (±0.42, 0, -1.5). Preserve named assemblies and the -Z forward/+Y up convention.

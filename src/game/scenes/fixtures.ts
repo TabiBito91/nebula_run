@@ -3,7 +3,7 @@ import { createMission } from './mission'
 import { spawnEnemy, spawnHazard } from '../systems/spawning'
 import { projectile } from '../systems/combat'
 
-export const SCENES = ['mission-start', 'basic-flight', 'asteroid-field', 'basic-enemy', 'enemy-wave', 'enemy-fire', 'low-health', 'final-encounter', 'mission-complete'] as const
+export const SCENES = ['mission-start', 'basic-flight', 'asteroid-field', 'basic-enemy', 'enemy-wave', 'enemy-fire', 'low-health', 'final-encounter', 'mission-complete', 'ship-showcase'] as const
 export type SceneName = typeof SCENES[number]
 export function createFixture(name: string) {
   if (!(SCENES as readonly string[]).includes(name)) throw new Error(`Unknown scene: ${name}`)

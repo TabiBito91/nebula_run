@@ -1,5 +1,9 @@
 import { test, expect, state, scene, resume } from './support'
 
+// Long sorties already retain failure video. Duplicating every rendered frame
+// into trace screenshots creates a CDP backlog on this Windows host.
+test.use({ trace: { mode: 'retain-on-failure', screenshots: false, snapshots: true, sources: true } })
+
 test('full real-time keyboard sortie reaches the core and restores the signal', async ({ page }, info) => {
   test.setTimeout(210_000)
   await scene(page, 'mission-start'); await resume(page)

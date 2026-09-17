@@ -1,7 +1,11 @@
 import type { Game } from '../Game'
 import { createFixture, SCENES } from '../scenes/fixtures'
+import { ShipShowcase } from './ShipShowcase'
 
 export function installInspector(game: Game) {
+  const showcase = new ShipShowcase(game)
+  const originalDispose = game.dispose.bind(game)
+  game.dispose = () => { showcase.dispose(); originalDispose() }
   const snapshot = () => {
     const s = game.state, target = game.target()
     return structuredClone({
@@ -14,8 +18,10 @@ export function installInspector(game: Game) {
       playerProjectileCount: s.projectiles.filter(p => p.owner === 'player').length,
       enemyProjectileCount: s.projectiles.filter(p => p.owner === 'enemy').length,
       hazardCount: s.hazards.length, recentCollisions: s.collisions,
-      camera: { position: game.renderer.camera.position.toArray(), mode: 'trailing-arcade' },
-      pendingAssets: 0, recentEvents: s.events, capturedErrors: game.errors, ...game.renderer.metrics,
+      camera: s.scene === 'ship-showcase' ? showcase.inspect().camera : { position: game.renderer.camera.position.toArray(), mode: 'trailing-arcade' },
+      ship: { selected:game.renderer.shipVariant,active:game.renderer.activeShip,status:game.renderer.strix.status,error:game.renderer.strix.error,loadTimeMs:game.renderer.strix.loadTimeMs,bytes:game.renderer.strix.bytes,textures:0 },
+      projectiles: s.projectiles.map(p=>({id:p.id,owner:p.owner,position:p.position,previous:p.previous})),
+      pendingAssets: game.renderer.strix.status==='pending'?1:0, recentEvents: s.events, capturedErrors: game.errors, ...game.renderer.metrics,
     })
   }
   const loadScene = async (name: string) => {
@@ -27,6 +33,9 @@ export function installInspector(game: Game) {
     })
   }
   const inspector = {
+    getShipReview: () => showcase.inspect(),
+    setShipView: (view: string) => showcase.setView(view),
+    setShipVariant: (variant: string) => showcase.setVariant(variant),
     getState: snapshot, listScenes: () => [...SCENES], loadScene,
     resetScene: () => loadScene(game.state.scene),
     getRecentEvents: () => structuredClone(game.state.events), clearRecentEvents: () => { game.state.events = [] },

@@ -3,6 +3,7 @@ import { test, expect, state, scene, resume, elapsed } from './support'
 test('title launches with Enter and the pause button works', async ({ page }, info) => {
   await page.goto('/')
   await expect(page.getByRole('button', { name: 'LAUNCH SORTIE' })).toBeVisible()
+  await page.waitForFunction(()=>window.__GAME_INSPECTOR__?.getState().ship.active==='strix')
   await page.screenshot({ path: info.outputPath('title.png') })
   await page.keyboard.press('Enter')
   await elapsed(page, 0.2)

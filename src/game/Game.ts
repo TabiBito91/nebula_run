@@ -72,13 +72,13 @@ export class Game {
       while (this.accumulator >= CONFIG.step && s.status === 'playing') {
         s.elapsed += CONFIG.step
         updateMission(s)
-        if (s.status === 'playing') { move(s, this.input.axis, CONFIG.step); combat(s, this.input.axis.fire) }
+        if (s.status === 'playing') { move(s, this.input.axis, CONFIG.step); combat(s, this.input.axis.fire, this.renderer.activeShip === 'strix') }
         this.accumulator -= CONFIG.step; simulatedDt += CONFIG.step
       }
     } else this.accumulator = 0
     this.renderer.render(s, s.paused || s.status !== 'playing' ? 1 : this.accumulator / CONFIG.step, wallDt, simulatedDt)
-    this.hud.update(s, this.renderer.reticle, this.target()?.id ?? null)
-    s.ready = true
+    this.hud.update(s, this.renderer.reticle, this.target()?.id ?? null, this.renderer.activeShip)
+    s.ready = this.renderer.strix.status !== 'pending'
     this.frameId = requestAnimationFrame(this.frame)
   }
   dispose() {

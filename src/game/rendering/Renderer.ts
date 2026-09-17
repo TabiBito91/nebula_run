@@ -2,13 +2,19 @@ import * as THREE from 'three'
 import type { Entity, GameEvent, Metrics } from '../entities/types'
 import { GameState } from '../state'
 import { Models } from './models'
+import { Strix } from './Strix'
 
 export class Renderer {
+  /** Optional development review renderer, installed only by the inspector. */
+  reviewRender?: (state: GameState) => boolean
   readonly scene = new THREE.Scene()
   readonly camera = new THREE.PerspectiveCamera(58, 1, 0.1, 500)
   readonly webgl: THREE.WebGLRenderer
   readonly models = new Models()
   readonly ship = this.models.ship()
+  readonly strix = new Strix()
+  shipVariant: 'strix'|'legacy' = new URLSearchParams(location.search).get('ship') === 'legacy' ? 'legacy' : 'strix'
+  get activeShip() { return this.shipVariant === 'strix' && this.strix.status === 'ready' ? 'strix' : 'legacy' }
   private meshes = new Map<string, THREE.Object3D>()
   private stars: THREE.Points
   private starBase: Float32Array
@@ -28,6 +34,7 @@ export class Renderer {
     const light = new THREE.DirectionalLight('#adeee1', 3); light.position.set(-15, 20, 10); this.scene.add(light)
     const rim = new THREE.DirectionalLight('#be7bff', 3); rim.position.set(15, -2, -35); this.scene.add(rim)
     this.scene.add(this.ship)
+    this.scene.add(this.strix.root)
     let seed = 412
     const random = () => { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return seed / 4294967296 }
     this.starBase = new Float32Array(1800 * 3)
@@ -86,6 +93,10 @@ export class Renderer {
     s.events.slice(start).forEach(event => this.burst(event)); this.lastEvent = s.events.at(-1)
     this.position(this.ship, s.player, alpha); this.ship.rotation.set(s.player.rotation.x, 0, s.player.rotation.z)
     this.ship.visible = s.player.invulnerable <= 0 || Math.floor(s.elapsed * 14) % 2 === 0
+    this.position(this.strix.root,s.player,alpha)
+    this.strix.update(s.player.rotation.x,s.player.rotation.z,Math.hypot(s.player.velocity.x,s.player.velocity.y))
+    this.strix.root.visible = this.ship.visible && this.activeShip === 'strix'
+    this.ship.visible = this.ship.visible && this.activeShip === 'legacy'
     this.camera.position.x += (s.player.position.x * 0.13 - this.camera.position.x) * Math.min(1, wallDt * 4)
     this.camera.position.y += (3.5 + s.player.position.y * 0.08 - this.camera.position.y) * Math.min(1, wallDt * 4)
     this.camera.lookAt(0, 0, -45)
@@ -119,7 +130,7 @@ export class Renderer {
         p.mesh.scale.setScalar(0.2 * p.life)
       }
     }
-    this.webgl.render(this.scene, this.camera)
+    if (!this.reviewRender?.(s)) this.webgl.render(this.scene, this.camera)
     const aim = new THREE.Vector3(s.player.position.x, s.player.position.y, -45).project(this.camera)
     this.reticle = { x: (aim.x * 0.5 + 0.5) * 100, y: (-aim.y * 0.5 + 0.5) * 100 }
     if (wallDt > 0 && wallDt < 0.25) this.frameTimes.push(wallDt * 1000)
@@ -128,6 +139,8 @@ export class Renderer {
     this.metrics = { fps: average ? Math.round(1000 / average) : 0, averageFrameTime: Number(average.toFixed(2)), drawCalls: this.webgl.info.render.calls, triangles: this.webgl.info.render.triangles }
   }
   dispose() {
+    this.strix.dispose()
+    this.strix.root.removeFromParent()
     window.removeEventListener('resize', this.resize)
     const geometries = new Set<THREE.BufferGeometry>(), materials = new Set<THREE.Material>()
     this.scene.traverse(object => {

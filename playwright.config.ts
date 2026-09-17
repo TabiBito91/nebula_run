@@ -8,7 +8,9 @@ export default defineConfig({
   use: {
     browserName: 'chromium', viewport: { width: 1280, height: 720 },
     screenshot: 'only-on-failure', trace: 'retain-on-failure', video: 'retain-on-failure',
-    launchOptions: { args: ['--enable-webgl', '--disable-background-timer-throttling', '--disable-renderer-backgrounding'] },
+    // Intel's automatic ANGLE backend intermittently fails BindToCurrentSequence
+    // on this Windows host; D3D11 retains hardware rendering and all assertions.
+    launchOptions: { args: [...(process.platform==='win32'?['--use-angle=d3d11']:[]),'--enable-webgl', '--disable-background-timer-throttling', '--disable-renderer-backgrounding'] },
   },
   projects: [
     { name: 'game', testIgnore: '**/production.spec.ts', use: { baseURL: 'http://127.0.0.1:5173' } },
