@@ -18,6 +18,7 @@ export function installInspector(game: Game) {
       playerProjectileCount: s.projectiles.filter(p => p.owner === 'player').length,
       enemyProjectileCount: s.projectiles.filter(p => p.owner === 'enemy').length,
       hazardCount: s.hazards.length, recentCollisions: s.collisions,
+      environment:game.renderer.environment.inspect(),
       camera: s.scene === 'ship-showcase' ? showcase.inspect().camera : { position: game.renderer.camera.position.toArray(), mode: 'trailing-arcade' },
       ship: { selected:game.renderer.shipVariant,active:game.renderer.activeShip,status:game.renderer.strix.status,error:game.renderer.strix.error,loadTimeMs:game.renderer.strix.loadTimeMs,bytes:game.renderer.strix.bytes,textures:0 },
       projectiles: s.projectiles.map(p=>({id:p.id,owner:p.owner,position:p.position,previous:p.previous})),
@@ -26,6 +27,7 @@ export function installInspector(game: Game) {
   }
   const loadScene = async (name: string) => {
     const s = createFixture(name)
+    game.renderer.environment.setPreview(name.startsWith('environment-')?{scene:name,speedMultiplier:name==='environment-boost'?2.4:1,density:name==='environment-dense'?1:undefined,offset:name==='environment-dense'?38:0}:null)
     game.replace(s)
     await new Promise<void>(resolve => {
       const check = () => { if (s.ready) resolve(); else requestAnimationFrame(check) }

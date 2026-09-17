@@ -3,6 +3,8 @@ import type { Entity, GameEvent, Metrics } from '../entities/types'
 import { GameState } from '../state'
 import { Models } from './models'
 import { Strix } from './Strix'
+import { Environment } from './Environment'
+import type { EnvironmentPreset } from './environmentPresets'
 
 export class Renderer {
   /** Optional development review renderer, installed only by the inspector. */
@@ -16,49 +18,26 @@ export class Renderer {
   shipVariant: 'strix'|'legacy' = new URLSearchParams(location.search).get('ship') === 'legacy' ? 'legacy' : 'strix'
   get activeShip() { return this.shipVariant === 'strix' && this.strix.status === 'ready' ? 'strix' : 'legacy' }
   private meshes = new Map<string, THREE.Object3D>()
-  private stars: THREE.Points
-  private starBase: Float32Array
-  private gates: THREE.Group[] = []
+  readonly environment: Environment
   private effects: { mesh: THREE.Mesh; life: number; vx: number; vy: number; vz: number }[] = []
   private lastEvent?: GameEvent
   private generation = -1
   private frameTimes: number[] = []
   metrics: Metrics = { fps: 0, averageFrameTime: 0, drawCalls: 0, triangles: 0 }
   reticle = { x: 50, y: 50 }
-  constructor(canvas: HTMLCanvasElement) {
+  constructor(canvas: HTMLCanvasElement, environmentPreset?: EnvironmentPreset) {
+    this.environment = new Environment(environmentPreset)
     this.webgl = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' })
     this.webgl.setPixelRatio(Math.min(devicePixelRatio, 1.5)); this.webgl.setClearColor('#060b15')
     this.webgl.toneMapping = THREE.ACESFilmicToneMapping; this.webgl.toneMappingExposure = 1.3
+    // Keep gameplay fog and ship lighting unchanged; environment materials own their art direction.
     this.scene.fog = new THREE.FogExp2('#0a0d20', 0.0035)
     this.scene.add(new THREE.HemisphereLight('#9ab9ff', '#212335', 2.4))
     const light = new THREE.DirectionalLight('#adeee1', 3); light.position.set(-15, 20, 10); this.scene.add(light)
     const rim = new THREE.DirectionalLight('#be7bff', 3); rim.position.set(15, -2, -35); this.scene.add(rim)
     this.scene.add(this.ship)
     this.scene.add(this.strix.root)
-    let seed = 412
-    const random = () => { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return seed / 4294967296 }
-    this.starBase = new Float32Array(1800 * 3)
-    for (let i = 0; i < 1800; i++) {
-      this.starBase[i * 3] = (random() - 0.5) * 350
-      this.starBase[i * 3 + 1] = (random() - 0.5) * 210
-      this.starBase[i * 3 + 2] = -random() * 360
-    }
-    const geometry = new THREE.BufferGeometry()
-    geometry.setAttribute('position', new THREE.BufferAttribute(this.starBase.slice(), 3))
-    this.stars = new THREE.Points(geometry, new THREE.PointsMaterial({ color: '#b7cadd', size: 0.22, transparent: true, opacity: 0.8 }))
-    this.scene.add(this.stars)
-    const planet = new THREE.Mesh(new THREE.IcosahedronGeometry(1, 4), new THREE.MeshStandardMaterial({ color: '#302751', roughness: 1, flatShading: true }))
-    planet.scale.setScalar(34); planet.position.set(63, 26, -185); this.scene.add(planet)
-    const orbit = this.models.mesh('ring', 'purple', [49, 49, 49], [63, 26, -185]); orbit.rotation.set(1.13, 0.1, -0.4); this.scene.add(orbit)
-    for (let i = 0; i < 5; i++) {
-      const gate = new THREE.Group()
-      for (const sign of [-1, 1]) {
-        gate.add(this.models.mesh('box', 'dark', [1.2, 17, 1.6], [sign * 19, 0, 0]))
-        gate.add(this.models.mesh('box', 'teal', [0.06, 9, 0.1], [sign * 18.35, 0, 1]))
-        gate.add(this.models.mesh('box', 'purple', [6, 0.6, 2], [sign * 17, -9, 0]))
-      }
-      this.gates.push(gate); this.scene.add(gate)
-    }
+    this.scene.add(this.environment.root)
     for (let i = 0; i < 120; i++) {
       const mesh = this.models.mesh('orb', i % 3 ? 'amber' : 'teal', [0.12, 0.12, 0.12])
       mesh.visible = false; this.scene.add(mesh); this.effects.push({ mesh, life: 0, vx: 0, vy: 0, vz: 0 })
@@ -100,6 +79,8 @@ export class Renderer {
     this.camera.position.x += (s.player.position.x * 0.13 - this.camera.position.x) * Math.min(1, wallDt * 4)
     this.camera.position.y += (3.5 + s.player.position.y * 0.08 - this.camera.position.y) * Math.min(1, wallDt * 4)
     this.camera.lookAt(0, 0, -45)
+    this.environment.update(s.elapsed,s.scene,s.player)
+    if(this.camera.fov!==this.environment.cameraFov){this.camera.fov=this.environment.cameraFov;this.camera.updateProjectionMatrix()}
     const active = new Set<string>()
     for (const entity of [...s.enemies, ...s.hazards, ...s.projectiles]) {
       active.add(entity.id)
@@ -119,10 +100,6 @@ export class Renderer {
       }
     }
     for (const [id, mesh] of this.meshes) if (!active.has(id)) { this.scene.remove(mesh); this.meshes.delete(id) }
-    const stars = this.stars.geometry.getAttribute('position') as THREE.BufferAttribute
-    for (let i = 0; i < stars.count; i++) stars.setZ(i, -360 + ((this.starBase[i * 3 + 2] + 360 + s.elapsed * 13) % 380))
-    stars.needsUpdate = true
-    this.gates.forEach((gate, i) => { gate.position.z = -230 + ((i * 50 + s.elapsed * 13) % 250) })
     for (const p of this.effects) {
       p.life = Math.max(0, p.life - simulatedDt); p.mesh.visible = p.life > 0
       if (p.life > 0) {
@@ -139,6 +116,7 @@ export class Renderer {
     this.metrics = { fps: average ? Math.round(1000 / average) : 0, averageFrameTime: Number(average.toFixed(2)), drawCalls: this.webgl.info.render.calls, triangles: this.webgl.info.render.triangles }
   }
   dispose() {
+    this.environment.dispose()
     this.strix.dispose()
     this.strix.root.removeFromParent()
     window.removeEventListener('resize', this.resize)

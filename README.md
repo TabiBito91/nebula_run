@@ -66,6 +66,23 @@ The earlier `Interceptor.ts` Manta concept and `models.ts` original ship source 
 
 ## Current gameplay scope
 
+### Layered environment
+
+The Relay Graveyard environment is render-only: distant stars and a procedural nebula, a shaded ringed planet, three distinct industrial landmarks, and pooled middle/near scenery. Authored landmarks occur at different route distances; distance-keyed scenery chunks generate new deterministic layouts instead of repeating gates. Decoration stays outside the flight corridor and never enters collision or combat collections.
+
+Art direction lives in `src/game/rendering/environmentPresets.ts`: colors, environment-local fog, surface/celestial lighting colors, star/dust counts, density, forward presentation speed, planet size/position/rings, and landmark identity/type/placement. A level can supply its preset through `new Renderer(canvas, preset)` without changing renderer internals. `Environment` owns and disposes its pooled graphics resources. The ship, gameplay lighting/fog, weapons, HUD, controls, audio, and enemy/hazard balance are unchanged.
+
+Additional development fixtures:
+
+- `?testScene=environment-normal`: quiet representative flight.
+- `?testScene=environment-boost`: **presentation-only** 2.4× travel, longer peripheral streaks, and 58° → 60° FOV. No boost control or gameplay speed change is introduced.
+- `?testScene=environment-combat`: six existing enemy types/instances plus incoming shots; hold Space for combat inspection.
+- `?testScene=environment-dense`: maximum scenery pools in the dock portion of the segment.
+
+Inspector `getState().environment` reports preset, region, distance, forward presentation speed, combined presentation/player lateral speed, preview boost state, pool counts/limits, measured lateral clearance, and sample layer positions. FPS, average frame time, draw calls, and triangles remain on the main snapshot. Object counts are active pooled instances, not a GPU-visible-object count. `gameplayBoost` is always false; paused simulation freezes the environment. Preview settings reset when leaving their fixture.
+
+Run `node tools/inspect-environment.mjs` with Vite running for seven screenshots and diagnostic JSON in `.logs/environment-review/after/`. Run `npx playwright test tests/environment.spec.ts --project=game` for environment-specific regressions. The environment has no image textures or external asset fetches; one opaque procedural background and bounded low-opacity line streaks limit overdraw.
+
 The first playable sortie is a roughly 150-second arcade route: straight attackers, sweeping drone formations, a debris passage, aimed-fire drones, and a blockade-core encounter. It includes shields, score, projectile combat, visual hit feedback, particle bursts, a trailing camera, pause/end overlays, and restarting without a page refresh.
 
 ### Known limitations

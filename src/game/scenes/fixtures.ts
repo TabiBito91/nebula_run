@@ -3,7 +3,7 @@ import { createMission } from './mission'
 import { spawnEnemy, spawnHazard } from '../systems/spawning'
 import { projectile } from '../systems/combat'
 
-export const SCENES = ['mission-start', 'basic-flight', 'asteroid-field', 'basic-enemy', 'enemy-wave', 'enemy-fire', 'low-health', 'final-encounter', 'mission-complete', 'ship-showcase'] as const
+export const SCENES = ['mission-start', 'basic-flight', 'asteroid-field', 'basic-enemy', 'enemy-wave', 'enemy-fire', 'low-health', 'final-encounter', 'mission-complete', 'ship-showcase', 'environment-normal', 'environment-boost', 'environment-combat', 'environment-dense'] as const
 export type SceneName = typeof SCENES[number]
 export function createFixture(name: string) {
   if (!(SCENES as readonly string[]).includes(name)) throw new Error(`Unknown scene: ${name}`)
@@ -11,6 +11,10 @@ export function createFixture(name: string) {
   s.scene = name
   s.route = name === 'mission-start' || name === 'final-encounter'
   s.paused = true
+  if(name==='environment-combat'){
+    for(let i=0;i<6;i++)spawnEnemy(s,i%2?'gunner':'sweep',(i-2.5)*3.4,i%2?2:-2,-40-i*7)
+    for(let i=0;i<6;i++)projectile(s,'enemy',vec((i-2.5)*3,3,-25-i*5),vec(0,0,12))
+  }
   if (name === 'asteroid-field') {
     for (let i = 0; i < 12; i++) spawnHazard(s, (i % 2 ? 1 : -1) * (4.5 + s.random() * 3), (s.random() - 0.5) * 8, -20 - i * 7, 1.3 + s.random())
     s.phaseIndex = 2
