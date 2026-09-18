@@ -1,10 +1,10 @@
 import type { GameState } from '../state'
-import { BOARD_VERSION, ONLINE_LIMIT, validEntry, type ScoreEntry } from './rules'
+import { BOARD_VERSION, ONLINE_LIMIT, validDisplayName, validEntry, type ScoreEntry } from './rules'
 import { LocalScores } from './LocalScores'
 import './leaderboard.css'
 
 type Ticket = { id: string; token: string; expires: number }
-type Flight = { state: GameState; ticket: Promise<Ticket | null>; result?: ScoreEntry; best?: boolean; message: string; sharing: boolean; shared: boolean }
+type Flight = { state: GameState; ticket: Promise<Ticket | null>; result?: ScoreEntry; best?: boolean; message: string; sharing: boolean; shared: boolean; submittedCallsign?: string }
 
 /** Presentation/service adapter. No network result can change simulation. */
 export class Leaderboard {
@@ -70,24 +70,33 @@ export class Leaderboard {
   private renderResult(f: Flight) {
     const host = document.querySelector('#overlay .end-card')
     if (!host || !f.result) return
-    const key = f.result.id + f.message + f.sharing + f.shared
+    const key = f.result.id + f.message + f.sharing + f.shared + (f.submittedCallsign || '')
     if (key === this.renderKey && host.querySelector('[data-score-result]')) return
     this.renderKey=key
     host.querySelector('[data-score-result]')?.remove()
     const box = document.createElement('section'); box.dataset.scoreResult=''; box.className='score-result'
     const text = document.createElement('p'); text.setAttribute('role','status'); text.textContent=`${f.best ? 'New personal best! ' : ''}${f.message}`
-    const consent = document.createElement('small'); consent.textContent=`Share ${f.result.callsign}, score, outcome and date publicly? No account required.`
+    const label = document.createElement('label'); label.className='score-name-label'; label.textContent='Public display name (optional)'
+    const name = document.createElement('input'); name.dataset.displayName=''; name.name='display-name'; name.maxLength=16; name.setAttribute('autocomplete','nickname'); name.spellcheck=false
+    name.value=f.submittedCallsign || f.result.callsign; name.disabled=f.shared || f.sharing
+    name.setAttribute('aria-describedby','display-name-help')
+    const help = document.createElement('small'); help.id='display-name-help'; help.textContent='3–16 letters, numbers, spaces, hyphens, or underscores. Names are public and may be hidden.'
+    const consent = document.createElement('small'); consent.textContent='Share this name, score, outcome and date publicly? No account required.'
     const share = document.createElement('button'); share.textContent=f.shared ? 'Score shared' : f.sharing ? 'Sharing…' : 'Share score online'; share.disabled=f.shared || f.sharing
     share.onclick=event=>{ event.stopPropagation(); void this.share(f) }
-    box.append(text,consent,share); host.append(box)
+    box.append(text,label,name,help,consent,share); host.append(box)
   }
   private async share(f: Flight) {
     if (!f.result || f.shared || f.sharing) return
+    const input = document.querySelector<HTMLInputElement>('[data-score-result] [data-display-name]')
+    const callsign = f.submittedCallsign || (input ? input.value : f.result.callsign)
+    if (!validDisplayName(callsign)) { f.message='Use a public name of 3–16 letters, numbers, spaces, hyphens, or underscores.'; this.renderKey=''; this.renderResult(f); return }
+    f.submittedCallsign=callsign
     f.sharing=true; this.renderKey=''; this.renderResult(f)
     try {
       const ticket = await f.ticket
       if (!ticket) throw new Error('This run started offline. Score retained locally; play a new sortie when online.')
-      const result = await this.api('scores', { id:ticket.id, token:ticket.token, version:BOARD_VERSION, score:f.result.score, elapsed:f.result.elapsed, outcome:f.result.outcome, callsign:f.result.callsign })
+      const result = await this.api('scores', { id:ticket.id, token:ticket.token, version:BOARD_VERSION, score:f.result.score, elapsed:f.result.elapsed, outcome:f.result.outcome, callsign })
       if (result.accepted !== true || result.id !== ticket.id) throw new Error('Submission was not confirmed. You can retry safely.')
       f.shared=true; f.message='Shared online. Your local score is also retained.'
     } catch (error) { f.message = error instanceof Error ? error.message : 'Unable to share; score retained locally.' }

@@ -6,7 +6,7 @@ This is a casual, browser-reported board, **not a cheat-proof competitive servic
 
 Main menu and result screens offer Leaderboard. Online top 25 is the first view; a failed/unconfigured service switches to the local top 10. Local records survive reload when browser storage is available. Storage failures retain an in-memory list for the session. Corrupt and wrong-version entries are ignored. Clear local scores requires confirmation and does not affect online entries.
 
-Only sorties launched through the normal Start/Restart lifecycle qualify. Development fixtures, including mission-start, never record or submit. Returning to the main menu abandons the run. A finished real sortie is recorded locally once. Optional **Share score online** publishes the displayed generated callsign, score, victory/defeat, elapsed simulation time and server-recorded submission date. There are no accounts, emails or free-form names. Callsigns are device-local labels, not verified identities. Clearing browser storage can change them.
+Only sorties launched through the normal Start/Restart lifecycle qualify. Development fixtures, including mission-start, never record or submit. Returning to the main menu abandons the run. A finished real sortie is recorded locally once. Optional **Share score online** publishes the displayed generated callsign by default, or an optional public display name, plus score, victory/defeat, elapsed simulation time and server-recorded submission date. A display name is 3–16 characters using only letters, numbers, spaces, hyphens and underscores; leading/trailing or repeated spaces and a small reserved/abuse blocklist are rejected. There are no accounts or emails. Names are public guest labels, not verified identities, and can be hidden by an operator. Clearing browser storage can change the default callsign.
 
 If registration failed at launch, the run is local only. There is no background upload queue and no automatic migration of old local scores. A valid run ticket permits safe submission retries while its result screen remains available. Leaving the result screen loses that ticket. Tickets expire two hours after registration; pauses count toward this server-side expiry. Score submission never alters the game result or blocks firing/movement.
 
@@ -34,7 +34,7 @@ Production startup refuses missing database/origin/secret settings rather than s
 
 - GET `/api/leaderboard`: current-version top 25, no ticket secrets.
 - POST `/api/runs`: `{version}` → random run ID + 256-bit bearer ticket + expiry. Only its SHA-256 hash is stored server-side.
-- POST `/api/scores`: run ID/ticket/version, generated callsign, score, elapsed, outcome. Parameterized SQL and atomic conditional update allow exactly one score per run. Identical retries return success; conflicting retries return 409.
+- POST `/api/scores`: run ID/ticket/version, validated public display name (or generated callsign), score, elapsed, outcome. Parameterized SQL and atomic conditional update allow exactly one score per run. Identical retries return success; conflicting retries return 409.
 - 4 KiB JSON body limit, same-origin checks, finite/ranged values, current-version check, score increments, generous timing/score plausibility envelope. Eight seconds of registration timing slack accommodates nonblocking network setup. Victory requires 120+ mission seconds and at least the core's 2,000 points.
 - Database-backed per-address limits: 12 registrations, 40 submissions and 120 reads per ten-minute bucket. Raw IP addresses are not stored in the database; a keyed digest identifies rate buckets. Provider access logs may still contain addresses. Expired unsubmitted runs and rate buckets are pruned when new runs register.
 - Accepted scores persist until operator action. Submitted rows contain no raw address; bearer hashes remain stored for idempotency. A public production privacy notice and a long-term retention policy should be chosen before wider release.
@@ -43,7 +43,7 @@ A determined player can fabricate a plausible run, wait out timing checks, or cr
 
 ## Moderation
 
-Use the private server shell with the correct database environment: `node server/moderate.mjs hide RUN_UUID` (or `restore`). The UUID is in the board API response. Hiding is reversible, preserves duplicate protection, and exposes no public admin route. Generated callsigns avoid a free-text profanity problem; operators can still hide fabricated scores. Back up the production database before maintenance.
+Use the private server shell with the correct database environment: `node server/moderate.mjs hide RUN_UUID` (or `restore`). The UUID is in the board API response. Hiding is reversible, preserves duplicate protection, and exposes no public admin route. The basic display-name filter is not comprehensive; operators can hide inappropriate or fabricated entries. Back up the production database before maintenance.
 
 ## Verification
 

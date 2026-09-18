@@ -37,7 +37,7 @@ test('reject invalid, forged, expired, wrong-version, early and impossible resul
   const h=await setup(t),r=await h.run(),data=h.result(r)
   assert.equal((await h.call('scores',data)).status,400)
   h.advance(10000)
-  for(const change of [{score:-1},{score:123},{score:999999},{elapsed:-1},{outcome:'victory'},{version:'old'},{callsign:'<script>'},{testScene:'mission-start'}])assert.equal((await h.call('scores',{...data,...change})).status,400)
+  for(const change of [{score:-1},{score:123},{score:999999},{elapsed:-1},{outcome:'victory'},{version:'old'},{callsign:'<script>'},{callsign:'ab'},{callsign:' Admin '},{callsign:'admin'},{callsign:'two  spaces'},{testScene:'mission-start'}])assert.equal((await h.call('scores',{...data,...change})).status,400)
   assert.equal((await h.call('scores',{...data,token:'a'.repeat(64)})).status,403)
   h.advance(7200001);assert.equal((await h.call('scores',data)).status,410)
 })
@@ -64,6 +64,7 @@ test('ranking uses score, victory, oldest timestamp; top count bounded',()=>{
   const entries=Array.from({length:30},(_,i)=>({id:String(i),score:100,outcome:i===20?'victory':'defeat',createdAt:new Date(i*1000).toISOString()}))
   const ranked=rankEntries(entries,25);assert.equal(ranked.length,25);assert.equal(ranked[0].id,'20');assert.equal(ranked[1].id,'0')
   assert.equal(validResult({score:2000,outcome:'victory',elapsed:121,callsign:'PILOT-123ABC'}),true)
+  assert.equal(validResult({score:100,outcome:'defeat',elapsed:10,callsign:'Nova Pilot_7'}),true)
 })
 test('local development database survives restart',async()=>{
   const dir=await mkdtemp(join(tmpdir(),'nebula-board-')),file=join(dir,'scores.sqlite')
