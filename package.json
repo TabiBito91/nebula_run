@@ -4,7 +4,10 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "node tools/dev.mjs",
+    "dev:api": "node server/index.mjs",
+    "start": "node server/index.mjs --production",
+    "test:leaderboard": "node --test server/tests/*.test.mjs",
     "ship:build": "node tools/build-strix.mjs",
     "ship:inspect": "node tools/inspect-strix.mjs",
     "build": "tsc && vite build",
@@ -21,6 +24,7 @@
     "vite": "^8.3.0"
   },
   "dependencies": {
+    "pg": "^8.23.0",
     "three": "^0.186.0"
   }
 }

@@ -10,6 +10,7 @@ import { combat } from './systems/combat'
 import { Diagnostics } from './Diagnostics'
 import { AudioSession } from './audio/AudioSession'
 import { AudioControls } from './ui/AudioControls'
+import { Leaderboard } from './leaderboard/Leaderboard'
 
 export class Game {
   state = createMission()
@@ -19,6 +20,7 @@ export class Game {
   errors: { message: string; source: string }[] = []
   readonly diagnostics = new Diagnostics()
   readonly audio: AudioSession
+  readonly leaderboard: Leaderboard
   private audioControls: AudioControls
   graphicsState: 'ready' | 'lost' | 'failed' = 'ready'
   private accumulator = 0
@@ -32,7 +34,8 @@ export class Game {
     this.renderer = new Renderer(canvas)
     this.audio = new AudioSession()
     this.input = new Keyboard(key => this.key(key), () => this.pause())
-    this.hud = new Hud(ui, () => this.action(), () => this.returnToMenu())
+    this.leaderboard = new Leaderboard()
+    this.hud = new Hud(ui, () => this.action(), () => this.returnToMenu(), () => { this.input.clear(); this.leaderboard.show() })
     this.audioControls = new AudioControls(this.audio.manager, () => this.input.clear())
     canvas.addEventListener('webglcontextlost', this.contextLost)
     canvas.addEventListener('webglcontextrestored', this.contextRestored)
@@ -80,9 +83,11 @@ export class Game {
   start(restarted = false) {
     if (this.graphicsState !== 'ready') return
     this.replace(createMission(true))
+    this.leaderboard.begin(this.state)
     if (restarted) this.state.event('game-restarted')
   }
   replace(s: GameState) {
+    this.leaderboard.abandon()
     this.hud.closeQuitDialog()
     this.input.clear(); this.accumulator = 0
     s.generation = ++this.generation; this.state = s
@@ -127,6 +132,7 @@ export class Game {
     this.audio.update(s, this.graphicsState === 'ready')
     this.renderer.render(s, s.paused || s.status !== 'playing' ? 1 : this.accumulator / CONFIG.step, wallDt, simulatedDt)
     this.hud.update(s, this.renderer.reticle, this.target()?.id ?? null, this.renderer.activeShip)
+    this.leaderboard.update(s)
     s.ready = this.renderer.strix.status !== 'pending'
     this.recordDiagnostic()
     } catch (error) { this.fail(error instanceof Error ? error.stack || error.message : String(error), 'frame') }
@@ -135,6 +141,7 @@ export class Game {
   dispose() {
     this.disposed = true; cancelAnimationFrame(this.frameId); this.input.dispose()
     this.audioControls.dispose(); this.audio.dispose()
+    this.leaderboard.dispose()
     this.renderer.webgl.domElement.removeEventListener('webglcontextlost', this.contextLost)
     this.renderer.webgl.domElement.removeEventListener('webglcontextrestored', this.contextRestored)
     this.diagnostics.dispose()

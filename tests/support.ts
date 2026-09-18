@@ -2,8 +2,12 @@ import { test as base, expect, type Page } from '@playwright/test'
 import type { Snapshot } from '../src/game/debug/inspector'
 import { writeFile } from 'node:fs/promises'
 
-export const test = base.extend<{ audit: string[] }>({
-  audit: [async ({ page }, use, info) => {
+export const test = base.extend<{ audit: string[]; leaderboardApi: boolean }>({
+  leaderboardApi: [false, { option: true }],
+  audit: [async ({ page, leaderboardApi }, use, info) => {
+    // Unrelated game tests stay isolated from public rankings and service availability.
+    // Leaderboard tests opt into the real/mocked API explicitly.
+    if (!leaderboardApi) await page.route('**/api/**', route => route.fulfill({ json: { offline: true } }))
     const errors: string[] = []
     page.on('pageerror', error => errors.push(`page: ${error.message}`))
     page.on('console', message => { if (message.type() === 'error') errors.push(`console: ${message.text()}`) })

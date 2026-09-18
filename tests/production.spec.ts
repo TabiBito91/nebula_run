@@ -51,3 +51,22 @@ test('production ignores development environment speed fixture',async({page})=>{
   await expect(page.locator('#time')).not.toHaveText('00:00 / 02:30')
   await expect(page.locator('.shield-module small')).toHaveText('INTERCEPTOR / STRIX-9')
 })
+test.describe('production leaderboard service', () => {
+test.use({ leaderboardApi: true })
+test('production leaderboard opens and closes without launching or exposing inspector', async ({ page }) => {
+  const { openStore } = await import('../server/store.mjs')
+  const { createApp } = await import('../server/app.mjs')
+  const store = await openStore({ file: ':memory:' })
+  const server = createApp({ store, origin: 'http://127.0.0.1', secret: 'production-smoke-only' })
+  await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve))
+  try {
+  await page.goto(`http://127.0.0.1:${server.address().port}/`)
+  await page.getByRole('button', { name: 'Leaderboard', exact: true }).click()
+  await expect(page.getByRole('dialog', { name: 'Flight records' })).toBeVisible()
+  await expect(page.getByRole('status')).toContainText('Online scores')
+  await page.keyboard.press('Escape')
+  await expect(page.getByRole('button', { name: /LAUNCH SORTIE/ })).toBeVisible()
+  expect(await page.evaluate(() => window.__GAME_INSPECTOR__)).toBeUndefined()
+  } finally { server.closeAllConnections(); await new Promise<void>(resolve => server.close(resolve)); await store.close() }
+})
+})

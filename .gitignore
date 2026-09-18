@@ -28,3 +28,8 @@ playwright-report/
 .logs/strix-review/
 .logs/environment-review/
 .logs/audio-review/
+.data/
+.env
+.env.*
+!.env.example
+.logs/leaderboard-review/

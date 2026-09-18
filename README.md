@@ -91,7 +91,7 @@ The first playable sortie is a roughly 150-second arcade route: straight attacke
 
 ### Known limitations
 
-This release has temporary procedural audio, but no gamepad/touch support, saved mission progress, online services, accessibility remapping, or configurable graphics settings. Performance depends on browser WebGL support and the local GPU.
+This release has temporary procedural audio and an optional online leaderboard, but no gamepad/touch support, saved mission progress, accessibility remapping, or configurable graphics settings. Performance depends on browser WebGL support and the local GPU.
 
 ## Music and sound effects
 
@@ -106,3 +106,9 @@ Development-only audio scenes (paused on load): `audio-flight`, `audio-firing`, 
 Inspector `getState().audio` includes initialization/unlock state, track/state/status/position, persisted gains, active voices/loops, engine/preview boost, recent events, transition, load failures, buffer memory, latency and output peak. The dev-only `startAudioCapture()` / `stopAudioCapture()` helpers record up to 60 seconds for review. Production includes neither these helpers nor fixture controls.
 
 Run `node tools/inspect-audio.mjs` with Vite running to capture keyboard-driven review scenes, output recordings, screenshots and metrics under `.logs/audio-review/`. Run `npx playwright test tests/audio*.spec.ts --project=game` for focused checks. Full game and production commands above include audio regression coverage. See `.logs/audio-implementation.md` for measured results and remaining listening limitations.
+
+## Leaderboard
+
+Open **Leaderboard** from the main menu or result screen for the online top 25 and this device's top 10. Finished real sorties save locally; **Share score online** is optional and publishes the generated guest callsign and result. Test fixtures and abandoned runs are excluded. Callsigns and browser-reported scores are not verified identities or cheat-proof records.
+
+Use Node 24.16+. `npm run dev` now starts both Vite and the local API; SQLite development data stays in ignored `.data/`. For deployment, `npm start` serves the built game and API together and requires PostgreSQL plus server-only settings in production. See [LEADERBOARD.md](LEADERBOARD.md) for Replit setup, privacy/abuse limits, database persistence, versioning, moderation and offline behavior. `npm run test:leaderboard` runs backend tests; `npx playwright test tests/leaderboard.spec.ts --project=game` includes a real-time browser sortie and local API/database integration. No Replit deployment is created automatically.

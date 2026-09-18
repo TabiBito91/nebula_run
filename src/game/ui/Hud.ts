@@ -14,7 +14,7 @@ export class Hud {
   private core: HTMLElement
   private previousOverlay = ''
   private quitDialog: HTMLDialogElement
-  constructor(root: HTMLElement, action: () => void, returnToMenu: () => void) {
+  constructor(root: HTMLElement, action: () => void, returnToMenu: () => void, showLeaderboard: () => void) {
     this.root = root
     root.innerHTML = `
       <header class="topbar"><div class="brand"><span class="brand-mark">⌁</span> NEBULA<span class="brand-light">RUN</span><small>SIGNALBREAK</small></div><div class="mission-tag"><i></i> SOLO SORTIE <span> / </span> NR—01</div><button class="pause-button" aria-label="Pause or resume">Ⅱ <span>PAUSE</span></button></header>
@@ -40,6 +40,7 @@ export class Hud {
     this.overlay.addEventListener('click', event => {
       const button = (event.target as HTMLElement).closest('button')
       if (!button) return
+      if (button.hasAttribute('data-leaderboard')) { showLeaderboard(); return }
       if (button.hasAttribute('data-quit')) {
         this.quitDialog.showModal()
         this.quitDialog.querySelector<HTMLButtonElement>('[data-cancel]')!.focus()
@@ -83,6 +84,11 @@ export class Hud {
       menu.textContent = s.status === 'playing' ? 'Return to Main Menu' : 'Main Menu'
       menu.setAttribute(s.status === 'playing' ? 'data-quit' : 'data-menu', '')
       this.overlay.querySelector('.end-card')!.append(menu)
+    }
+    if (s.status !== 'playing') {
+      const board = document.createElement('button')
+      board.className='menu-secondary'; board.textContent='Leaderboard'; board.dataset.leaderboard=''
+      this.overlay.querySelector(s.status === 'title' ? '.briefing':'.end-card')!.append(board)
     }
   }
 }
