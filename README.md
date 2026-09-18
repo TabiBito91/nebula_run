@@ -109,6 +109,8 @@ Run `node tools/inspect-audio.mjs` with Vite running to capture keyboard-driven 
 
 ## Phone controls
 
+Sound starts after tapping Launch. If sound remains blocked, open Audio and tap **Enable sound** to retry; check mute and volume settings there as well. This retry preserves your saved volume choices.
+
 On phones, rotate to landscape, tap Launch Sortie, then drag on the flight view to steer. Firing is automatic with the same weapon cooldown as desktop. Lifting your finger stops steering; tap Pause to stop the mission. Rotating to portrait or leaving the browser pauses flight; resume explicitly when ready. Menus support touch and safe-area spacing. Rendering retains the existing 1.5 pixel-ratio cap. Desktop keyboard controls remain available. Verified with Chromium mobile emulation; actual iPhone Safari and Android hardware performance still require device testing.
 
 ## Leaderboard

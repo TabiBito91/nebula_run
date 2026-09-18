@@ -19,6 +19,7 @@ export class AudioManager {
   private disposed = false
   private unlocked = false
   private unlocking: Promise<void> | null = null
+  private preloading = false
   private paused = false
   private hidden = document.hidden
   private currentMusic: MusicState | null = null
@@ -40,11 +41,14 @@ export class AudioManager {
   get available() { return !this.blocked && !this.disposed }
   constructor() {
     window.addEventListener('pointerdown', this.gesture, true)
+    window.addEventListener('pointerup', this.gesture, true)
+    window.addEventListener('touchend', this.gesture, true)
     window.addEventListener('keydown', this.gesture, true)
     document.addEventListener('visibilitychange', this.visibility)
   }
   private gesture = (event: Event) => {
     if (!event.isTrusted || this.disposed) return
+    if (event instanceof PointerEvent && event.type === 'pointerdown' && event.pointerType !== 'mouse') return
     if (event instanceof KeyboardEvent && (event.repeat || event.ctrlKey || event.metaKey || event.altKey)) return
     void this.unlock()
   }
@@ -63,7 +67,11 @@ export class AudioManager {
   }
   private async unlock() {
     if (this.disposed || this.hidden || this.blocked) return
-    if (this.unlocking) return this.unlocking
+    // A pending autoplay request must not swallow a later valid user gesture.
+    if (this.unlocking) {
+      void this.context?.resume().catch(() => {})
+      return this.unlocking
+    }
     if (this.unlocked && this.context?.state === 'running') return
     this.unlocking = (async () => {
       try {
@@ -83,15 +91,25 @@ export class AudioManager {
           // Small SFX buffers are ready before the first simulation update; music prepares progressively.
           for (const id of Object.keys(SOUNDS)) if (!SOUNDS[id].url) this.proceduralBuffer(id)
         }
-        await this.context.resume()
+        let timer: ReturnType<typeof setTimeout> | undefined
+        try {
+          await Promise.race([this.context.resume(), new Promise<void>(resolve => { timer=setTimeout(resolve,1500) })])
+        } finally { clearTimeout(timer) }
         if (this.disposed) return
         this.unlocked = this.context.state === 'running'
-        this.log('unlocked'); this.onSettingsChange?.()
-        void this.preload()
-        this.syncMusic()
+        this.log(this.unlocked ? 'unlocked' : 'audio-enable-required'); this.onSettingsChange?.()
+        if (this.unlocked) {
+          if (!this.preloading) { this.preloading=true; void this.preload() }
+          this.syncMusic()
+        }
       } catch (error) { this.error('initialization', error); this.blocked = !this.context; this.onSettingsChange?.() }
     })().finally(() => { this.unlocking = null })
     return this.unlocking
+  }
+  /** Call directly from a click/tap so resume retains browser user activation. */
+  async enableSound(confirm = false) {
+    await this.unlock()
+    if (confirm && this.context?.state === 'running') this.play('confirm')
   }
   private proceduralBuffer(id: string) {
     if (!this.context || this.buffers.has(id)) return
@@ -278,6 +296,7 @@ export class AudioManager {
     if (this.disposed) return
     this.disposed = true
     window.removeEventListener('pointerdown', this.gesture, true); window.removeEventListener('keydown', this.gesture, true)
+    window.removeEventListener('pointerup', this.gesture, true); window.removeEventListener('touchend', this.gesture, true)
     document.removeEventListener('visibilitychange', this.visibility)
     this.controllers.forEach(controller => controller.abort())
     for (const voice of this.voices) { try { voice.source.stop() } catch {} }

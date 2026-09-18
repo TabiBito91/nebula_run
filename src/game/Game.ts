@@ -79,6 +79,7 @@ export class Game {
     if (key === 'KeyR' && ['game-over', 'mission-complete'].includes(this.state.status)) this.start(true)
   }
   private action() {
+    void this.audio.manager.enableSound()
     if (this.state.status === 'title') this.start()
     else if (this.state.status !== 'playing') this.start(true)
     else this.state.paused ? this.resume() : this.pause()
