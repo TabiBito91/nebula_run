@@ -91,7 +91,7 @@ The first playable sortie is a roughly 150-second arcade route: straight attacke
 
 ### Known limitations
 
-This release has temporary procedural audio and an optional online leaderboard, but no gamepad/touch support, saved mission progress, accessibility remapping, or configurable graphics settings. Performance depends on browser WebGL support and the local GPU.
+This release has temporary procedural audio, landscape touch controls and an optional online leaderboard, but no gamepad support, saved mission progress, accessibility remapping, or configurable graphics settings. Performance depends on browser WebGL support and the local GPU.
 
 ## Music and sound effects
 
@@ -106,6 +106,10 @@ Development-only audio scenes (paused on load): `audio-flight`, `audio-firing`, 
 Inspector `getState().audio` includes initialization/unlock state, track/state/status/position, persisted gains, active voices/loops, engine/preview boost, recent events, transition, load failures, buffer memory, latency and output peak. The dev-only `startAudioCapture()` / `stopAudioCapture()` helpers record up to 60 seconds for review. Production includes neither these helpers nor fixture controls.
 
 Run `node tools/inspect-audio.mjs` with Vite running to capture keyboard-driven review scenes, output recordings, screenshots and metrics under `.logs/audio-review/`. Run `npx playwright test tests/audio*.spec.ts --project=game` for focused checks. Full game and production commands above include audio regression coverage. See `.logs/audio-implementation.md` for measured results and remaining listening limitations.
+
+## Phone controls
+
+On phones, rotate to landscape, tap Launch Sortie, then drag on the flight view to steer. Firing is automatic with the same weapon cooldown as desktop. Lifting your finger stops steering; tap Pause to stop the mission. Rotating to portrait or leaving the browser pauses flight; resume explicitly when ready. Menus support touch and safe-area spacing. Rendering retains the existing 1.5 pixel-ratio cap. Desktop keyboard controls remain available. Verified with Chromium mobile emulation; actual iPhone Safari and Android hardware performance still require device testing.
 
 ## Leaderboard
 

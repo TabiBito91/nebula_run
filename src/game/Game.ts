@@ -1,5 +1,6 @@
 import { CONFIG } from './config'
 import { Keyboard } from './input/Keyboard'
+import { Touch } from './input/Touch'
 import { Renderer } from './rendering/Renderer'
 import { Hud } from './ui/Hud'
 import { createMission } from './scenes/mission'
@@ -16,6 +17,7 @@ export class Game {
   state = createMission()
   renderer: Renderer
   input: Keyboard
+  touch: Touch
   hud: Hud
   errors: { message: string; source: string }[] = []
   readonly diagnostics = new Diagnostics()
@@ -33,6 +35,7 @@ export class Game {
     window.addEventListener('unhandledrejection', this.onRejection)
     this.renderer = new Renderer(canvas)
     this.audio = new AudioSession()
+    this.touch = new Touch(canvas, () => this.state, () => this.pause())
     this.input = new Keyboard(key => this.key(key), () => this.pause())
     this.leaderboard = new Leaderboard()
     this.hud = new Hud(ui, () => this.action(), () => this.returnToMenu(), () => { this.input.clear(); this.leaderboard.show() })
@@ -89,7 +92,7 @@ export class Game {
   replace(s: GameState) {
     this.leaderboard.abandon()
     this.hud.closeQuitDialog()
-    this.input.clear(); this.accumulator = 0
+    this.input.clear(); this.touch.clear(); this.accumulator = 0
     s.generation = ++this.generation; this.state = s
   }
   returnToMenu() {
@@ -100,12 +103,12 @@ export class Game {
   pause() {
     const audiblePause = this.state.status === 'playing' && !this.state.paused
     if (this.state.status === 'playing') this.state.paused = true
-    this.input.clear(); this.accumulator = 0
+    this.input?.clear(); this.touch?.clear(); this.accumulator = 0
     this.audio.manager.setPaused(true)
     if (audiblePause) this.audio.manager.play('pause')
   }
   resume() {
-    if (this.graphicsState !== 'ready') return
+    if (this.graphicsState !== 'ready' || this.touch.portrait) return
     if (this.state.status === 'playing') { this.state.paused = false; this.input.clear(); this.accumulator = 0; this.audio.manager.setPaused(false); this.audio.manager.play('resume') }
   }
   target() {
@@ -125,7 +128,12 @@ export class Game {
       while (this.accumulator >= CONFIG.step && s.status === 'playing') {
         s.elapsed += CONFIG.step
         updateMission(s)
-        if (s.status === 'playing') { move(s, this.input.axis, CONFIG.step); combat(s, this.input.axis.fire, this.renderer.activeShip === 'strix') }
+        if (s.status === 'playing') {
+          const keyboard = this.input.axis, touch = this.touch.axis
+          const controls = keyboard.x || keyboard.y ? keyboard : touch
+          move(s, controls, CONFIG.step)
+          combat(s, keyboard.fire || touch.fire, this.renderer.activeShip === 'strix')
+        }
         this.accumulator -= CONFIG.step; simulatedDt += CONFIG.step
       }
     } else this.accumulator = 0
@@ -140,6 +148,7 @@ export class Game {
   }
   dispose() {
     this.disposed = true; cancelAnimationFrame(this.frameId); this.input.dispose()
+    this.touch.dispose()
     this.audioControls.dispose(); this.audio.dispose()
     this.leaderboard.dispose()
     this.renderer.webgl.domElement.removeEventListener('webglcontextlost', this.contextLost)

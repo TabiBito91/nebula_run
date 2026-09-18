@@ -71,6 +71,7 @@ export class Hud {
     if (s.status === 'title') {
       this.overlay.innerHTML = `<div class="briefing"><div class="eyebrow"><span class="live-dot"></span> FLIGHT OPERATIONS / MISSION 001</div><h2>One ship.<br>One last <em>signal.</em></h2><p>The relay has gone dark. Cut through the drone patrol, cross the debris belt, and break the blockade before the signal is lost.</p><div class="mission-chips"><span>02:30 TRANSIT</span><span>OUTER RELAY BELT</span></div><button class="launch">LAUNCH SORTIE <span>↗</span></button><div class="key-hint">PRESS ENTER TO LAUNCH</div><div class="brief-controls"><div><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd><span>STEER</span></div><div><kbd>SPACE</kbd><span>FIRE</span></div></div></div><div class="brief-aside"><span>KESTREL—9</span><small>LIGHT COURIER / COMBAT RETROFIT</small><div class="ship-line"></div><p>Keep moving. Hold your fire line.<br>The core is your only way through.</p></div>`
       this.overlay.querySelector('.brief-aside span')!.textContent=shipName
+      this.overlay.querySelector('h2')!.firstChild!.textContent = 'One ship. '
       this.overlay.querySelector('.brief-aside small')!.textContent=ship==='strix'?'STX9-A1 / RELAY INTERCEPTOR':'LIGHT COURIER / COMBAT RETROFIT'
     } else if (s.status === 'playing') {
       this.overlay.innerHTML = `<div class="end-card"><div class="eyebrow">FLIGHT SUSPENDED</div><h2>Take a breath.</h2><p>Your sortie is paused.</p><button class="launch">RESUME FLIGHT <span>↗</span></button><small>P / ESC TO RESUME</small></div>`

@@ -11,6 +11,7 @@ export class Keyboard {
     document.addEventListener('visibilitychange', this.visibility)
   }
   private down = (event: KeyboardEvent) => {
+    if (event.target instanceof Element && event.target.closest('input,textarea,select,[contenteditable="true"]')) return
     if (document.querySelector('dialog[data-quit-dialog][open], dialog[data-leaderboard][open]')) return
     if (event.target instanceof Element && event.target.closest('[data-audio-controls]')) return
     if (event.target instanceof Element && event.target.closest('#overlay button') && ['Enter', 'Space'].includes(event.code)) return

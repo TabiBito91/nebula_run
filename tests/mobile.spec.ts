@@ -1,0 +1,37 @@
+import {test,expect,scene,state} from './support'
+
+test.use({viewport:{width:844,height:390},hasTouch:true,isMobile:true,deviceScaleFactor:3})
+test('touch flight uses relative drag, auto-fire, cancellation and rotation pause',async({page},info)=>{
+  await scene(page,'basic-flight')
+  await page.getByRole('button',{name:/RESUME FLIGHT/}).tap()
+  const cdp = await page.context().newCDPSession(page)
+  const touch = (type:string,points:object[]) => cdp.send('Input.dispatchTouchEvent',{type,touchPoints:points})
+  const point = (x:number,y:number) => ({x,y,id:1})
+  await touch('touchStart',[point(420,200)])
+  await expect.poll(async()=> (await state(page)).player.position.x).toBe(0)
+  await touch('touchMove',[point(500,170)])
+  await expect.poll(async()=> (await state(page)).player.position.x).toBeGreaterThan(2)
+  await touch('touchEnd',[])
+  const stopped=(await state(page)).player.position.x
+  await expect.poll(async()=> (await state(page)).playerProjectileCount).toBeGreaterThan(0)
+  await page.getByRole('button',{name:'Pause or resume'}).tap()
+  expect((await state(page)).paused).toBe(true)
+  expect((await state(page)).player.position.x).toBeCloseTo(stopped)
+  await page.screenshot({path:info.outputPath('mobile-pause.png')})
+  await page.getByRole('button',{name:/RESUME FLIGHT/}).tap()
+  await page.screenshot({path:info.outputPath('mobile-flight.png')})
+  await page.setViewportSize({width:390,height:844})
+  await expect(page.getByText('Rotate your phone to landscape to fly.')).toBeVisible()
+  await expect.poll(async()=> (await state(page)).paused).toBe(true)
+  await page.setViewportSize({width:844,height:390})
+  expect((await state(page)).paused).toBe(true)
+})
+
+test('mobile main menu launches with a tap and offers touch instructions',async({page},info)=>{
+  await page.goto('/')
+  await page.waitForFunction(()=>window.__GAME_INSPECTOR__?.getState().ready)
+  await page.screenshot({path:info.outputPath('mobile-menu.png')})
+  await page.getByRole('button',{name:/LAUNCH SORTIE/}).tap()
+  await expect.poll(async()=> (await state(page)).status).toBe('playing')
+  await expect.poll(async()=> (await state(page)).playerProjectileCount).toBeGreaterThan(0)
+})
