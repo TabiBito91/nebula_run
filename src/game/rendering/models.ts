@@ -6,6 +6,8 @@ export class Models {
     box: new THREE.BoxGeometry(1, 1, 1), prism: new THREE.ConeGeometry(1, 2, 4),
     rock: new THREE.IcosahedronGeometry(1, 0), orb: new THREE.IcosahedronGeometry(1, 1),
     ring: new THREE.TorusGeometry(1, 0.035, 6, 48),
+    warningRing: new THREE.TorusGeometry(1, 0.065, 4, 32),
+    cracks: new THREE.EdgesGeometry(new THREE.IcosahedronGeometry(1, 0)),
   }
   materials = {
     hull: new THREE.MeshStandardMaterial({ color: '#c6e4e4', metalness: 0.65, roughness: 0.35 }),
@@ -14,6 +16,8 @@ export class Models {
     purple: new THREE.MeshStandardMaterial({ color: '#8673bc', metalness: 0.65, roughness: 0.5 }),
     rock: new THREE.MeshStandardMaterial({ color: '#696679', flatShading: true, roughness: 0.9 }),
     white: new THREE.MeshBasicMaterial({ color: '#ffffff' }),
+    fractured: new THREE.MeshStandardMaterial({ color: '#bcb6a2', flatShading: true, roughness: 1 }),
+    cracks: new THREE.LineBasicMaterial({ color: '#302b28' }),
   }
   mesh(geometry: keyof Models['geometries'], material: keyof Models['materials'], scale: number[], position = [0, 0, 0]) {
     const m = new THREE.Mesh(this.geometries[geometry], this.materials[material])
@@ -36,7 +40,17 @@ export class Models {
     }
     return g
   }
-  enemy(type: EnemyType) {
+  asteroid(radius: number, fractured: boolean) {
+    const g = new THREE.Group()
+    g.add(this.mesh('rock', fractured ? 'fractured' : 'rock', [1, 0.85, 1]))
+    if (fractured) {
+      const cracks = new THREE.LineSegments(this.geometries.cracks, this.materials.cracks)
+      cracks.scale.set(1.005, 0.855, 1.005); g.add(cracks)
+    }
+    g.scale.setScalar(radius)
+    return g
+  }
+  enemy(type: EnemyType, patterned = false) {
     const g = new THREE.Group()
     if (type === 'core') {
       g.add(this.mesh('orb', 'dark', [3.6, 3.6, 2.5])); g.add(this.mesh('orb', 'amber', [1.15, 1.15, 2.65]))
@@ -54,6 +68,12 @@ export class Models {
         wing.rotation.z = side * (type === 'sweep' ? 1.0 : 0.4); g.add(wing)
       }
       if (type === 'gunner') g.add(this.mesh('ring', 'amber', [1.2, 1.2, 1.2]))
+    }
+    if (patterned) {
+      const warning = new THREE.Group(); warning.name = 'attack-warning'; warning.visible = false
+      warning.add(this.mesh('warningRing', 'amber', [1.8, 1.8, 1], [0, 0, 3]))
+      for (let i = -2; i <= 2; i++) warning.add(this.mesh('box', 'amber', [0.2, 0.65, 0.14], [i * 0.8, 2.2, 3]))
+      g.add(warning)
     }
     return g
   }

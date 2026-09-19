@@ -6,7 +6,7 @@ import { join } from 'node:path'
 import { spawnSync } from 'node:child_process'
 import { createApp } from '../app.mjs'
 import { openStore } from '../store.mjs'
-import { BOARD_VERSION, rankEntries, validResult } from '../../src/game/leaderboard/rules.ts'
+import { BOARD_VERSION, LEGACY_VERSION, LEGACY_VETERAN, boardVersion, rankEntries, validResult } from '../../src/game/leaderboard/rules.ts'
 
 async function setup(t) {
   const store=await openStore({file:':memory:'}); let now=1800000000000
@@ -78,4 +78,54 @@ test('local development database survives restart',async()=>{
 test('production command refuses missing durable database configuration',()=>{
   const result=spawnSync(process.execPath,['server/index.mjs','--production'],{encoding:'utf8',env:{...process.env,DATABASE_URL:'',APP_ORIGIN:'',RATE_LIMIT_SECRET:''}})
   assert.notEqual(result.status,0);assert.match(result.stderr,/No ephemeral database fallback/)
+})
+
+test('difficulty bound to ticket, rankings isolated, legacy retained read-only', async t => {
+  const h = await setup(t)
+  for (const [mode, score] of [['relaxed', 75], ['standard', 100], ['veteran', 125]]) {
+    const version = boardVersion(mode)
+    const r = (await h.call('runs', { version })).body
+    h.advance(10000)
+    const data = h.result(r, { version, score })
+    assert.equal((await h.call('scores', { ...data, version: boardVersion(mode === 'veteran' ? 'relaxed' : 'veteran'), score: 375 })).status, 403)
+    assert.equal((await h.call('scores', data)).status, 200)
+    const board = (await h.call(`leaderboard?version=${version}`)).body
+    assert.equal(board.entries.length, 1)
+    assert.equal(board.entries[0].score, score)
+    assert.equal(board.entries[0].version, version)
+  }
+  await h.store.create({ id:'legacy', hash:'old', version:LEGACY_VERSION, started:0, expires:1 })
+  await h.store.finish('legacy', 'old', { score:100, outcome:'defeat', elapsed:10, callsign:'Old Pilot', createdAt:new Date().toISOString() })
+  assert.equal((await h.call(`leaderboard?version=${LEGACY_VERSION}`)).body.entries[0].callsign, 'Old Pilot')
+  assert.equal((await h.call('runs', { version:LEGACY_VERSION })).status, 400)
+  await h.store.create({ id:'legacy-veteran', hash:'old-veteran', version:LEGACY_VETERAN, started:0, expires:1 })
+  await h.store.finish('legacy-veteran', 'old-veteran', { score:2125, outcome:'defeat', elapsed:100, callsign:'Veteran Pilot', createdAt:new Date().toISOString() })
+  assert.equal((await h.call(`leaderboard?version=${LEGACY_VETERAN}`)).body.entries[0].score, 2125)
+  assert.equal((await h.call('runs', { version:LEGACY_VETERAN })).status, 400)
+  assert.equal((await h.call('leaderboard?version=invalid')).status, 400)
+})
+
+test('mode score increments and core award minimums are validated', () => {
+  for (const [mode, unit] of [['relaxed',75],['standard',100],['veteran',125]]) {
+    const result = { version:boardVersion(mode), score:unit, elapsed:10, outcome:'defeat', callsign:'Pilot Test' }
+    assert.equal(validResult(result),true)
+    assert.equal(validResult({...result,score:unit+1}),false)
+    assert.equal(validResult({...result,outcome:'victory',elapsed:125,score:unit*19}),false)
+    assert.equal(validResult({...result,outcome:'victory',elapsed:125,score:unit*20}),true)
+  }
+})
+
+test('asteroid-inclusive scores submit in all modes; prior rules remain read-only', async t => {
+  const h=await setup(t)
+  for (const [mode,score] of [['relaxed',105],['standard',140],['veteran',175]]) {
+    const version=boardVersion(mode)
+    const r=(await h.call('runs',{version})).body
+    h.advance(60000)
+    assert.equal((await h.call('scores',h.result(r,{version,score,elapsed:60}))).status,200)
+    assert.equal((await h.call(`leaderboard?version=${version}`)).body.entries[0].score,score)
+  }
+  for (const version of ['signalbreak-2','signalbreak-2-relaxed','signalbreak-3-veteran']) {
+    assert.equal((await h.call('runs',{version})).status,400)
+    assert.equal((await h.call(`leaderboard?version=${version}`)).status,200)
+  }
 })

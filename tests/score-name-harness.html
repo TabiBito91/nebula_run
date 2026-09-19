@@ -1,0 +1,12 @@
+<!doctype html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Score name component test</title>
+<style>body{background:#08131d;color:#dcebea;font-family:Arial;padding:24px}.end-card{max-width:440px}</style></head>
+<body><div id="overlay"><div class="end-card"></div></div>
+<script type="module">
+// Isolated test component. Not referenced by the application or production build.
+import {Leaderboard} from '/src/game/leaderboard/Leaderboard.ts';
+import {GameState} from '/src/game/state.ts';
+const board = new Leaderboard(); const s = new GameState(); s.status='playing'; s.score=3000; s.elapsed=130;
+board.begin(s); s.finish(true);
+function tick(){board.update(s);requestAnimationFrame(tick)} tick();
+</script></body></html>

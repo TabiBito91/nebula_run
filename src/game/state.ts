@@ -1,7 +1,13 @@
 import { CONFIG, PHASES } from './config'
+import { DIFFICULTIES, type Difficulty } from './difficulty'
 import { vec, type Enemy, type GameEvent, type GameStatus, type Hazard, type Player, type Projectile } from './entities/types'
 
 export class GameState {
+  readonly difficulty: Difficulty
+  constructor(difficulty: Difficulty = 'standard') { this.difficulty = difficulty }
+  get tuning() { return DIFFICULTIES[this.difficulty] }
+  waveNumber = 0
+  nextAttackAt = 0
   ready = false
   scene = 'mission-start'
   status: GameStatus = 'title'
@@ -46,6 +52,6 @@ export class GameState {
     this.status = won ? 'mission-complete' : 'game-over'
     this.reason = reason
     this.paused = false
-    this.event(won ? 'mission-completed' : 'game-over', { score: this.score, reason })
+    this.event(won ? 'mission-completed' : 'game-over', { score: this.score, reason, difficulty: this.difficulty })
   }
 }

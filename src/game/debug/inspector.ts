@@ -13,6 +13,7 @@ export function installInspector(game: Game) {
     const s = game.state, target = game.target()
     return structuredClone({
       ready: s.ready, activeScene: s.scene, status: s.status, missionPhase: s.phase.name,
+      difficulty: s.difficulty, difficultyTuning: s.tuning,
       graphicsState: game.graphicsState, previousFlightDiagnostic: game.diagnostics.previous,
       audio: game.audio.manager.inspect(),
       leaderboard: game.leaderboard.inspect(),
@@ -20,10 +21,12 @@ export function installInspector(game: Game) {
       player: { position: s.player.position, rotation: s.player.rotation, velocity: s.player.velocity, shields: s.player.shields, invulnerable: s.player.invulnerable },
       weaponCooldown: s.player.weaponCooldown, score: s.score, currentTarget: target?.id ?? null,
       targetDistance: target ? Math.hypot(target.position.x - s.player.position.x, target.position.y - s.player.position.y, target.position.z) : null,
-      enemies: s.enemies.map(e => ({ id: e.id, type: e.type, position: e.position, health: e.health, maxHealth: e.maxHealth, telegraph: e.telegraph })),
+      enemies: s.enemies.map(e => ({ id: e.id, type: e.type, position: e.position, health: e.health, maxHealth: e.maxHealth, telegraph: e.telegraph, attack: e.attack ?? null })),
+      activeAttacks: s.enemies.filter(e => e.attack && e.attack.stage !== 'idle').length,
       playerProjectileCount: s.projectiles.filter(p => p.owner === 'player').length,
       enemyProjectileCount: s.projectiles.filter(p => p.owner === 'enemy').length,
       hazardCount: s.hazards.length, recentCollisions: s.collisions,
+      hazards: s.hazards.map(h => ({ id: h.id, kind: h.kind, position: h.position, radius: h.radius, durability: h.durability })),
       environment:game.renderer.environment.inspect(),
       camera: s.scene === 'ship-showcase' ? showcase.inspect().camera : { position: game.renderer.camera.position.toArray(), mode: 'trailing-arcade' },
       ship: { selected:game.renderer.shipVariant,active:game.renderer.activeShip,status:game.renderer.strix.status,error:game.renderer.strix.error,loadTimeMs:game.renderer.strix.loadTimeMs,bytes:game.renderer.strix.bytes,textures:0 },

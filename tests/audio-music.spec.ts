@@ -4,6 +4,7 @@ test('audio waits for interaction, persists settings, and leaves volume keys out
   await page.goto('/')
   await page.waitForFunction(() => window.__GAME_INSPECTOR__?.getState().ready)
   expect((await state(page)).audio.initialized).toBe(false)
+  await page.getByRole('button', { name: 'More ⋯' }).click()
   await page.getByRole('button', { name: 'Audio', exact: true }).click()
   await page.waitForFunction(() => window.__GAME_INSPECTOR__!.getState().audio.musicStatus === 'playing')
   expect((await state(page)).audio.activeLoops).toEqual(['music:menu'])

@@ -6,7 +6,7 @@ export const CONFIG = {
 export const PHASES = [
   { at: 0, name: 'Departure', hint: 'Clear the relay approach', label: '01 / RELAY APPROACH' },
   { at: 20, name: 'Drone patrol', hint: 'Sweep the patrol formations', label: '02 / DRONE PATROL' },
-  { at: 55, name: 'Debris passage', hint: 'Find a path through the debris', label: '03 / DEBRIS PASSAGE' },
+  { at: 55, name: 'Debris passage', hint: 'Shoot pale cracked rocks for points. Dodge solid rocks.', label: '03 / DEBRIS PASSAGE' },
   { at: 90, name: 'Relay defense', hint: 'Watch for amber incoming fire', label: '04 / RELAY DEFENSE' },
   { at: 120, name: 'Signalbreak', hint: 'Destroy the core before lockdown', label: '05 / BLOCKADE CORE' },
 ] as const

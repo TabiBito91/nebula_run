@@ -1,5 +1,7 @@
 # Nebula Run: Signalbreak
 
+Private feedback is available from the main menu, pause menu, and results. See [FEEDBACK.md](FEEDBACK.md) for storage, review queries, retention, tests, and Replit rollout instructions.
+
 Graphics interruption now pauses flight and offers reload; restored graphics leave the mission paused for manual resume. A bounded diagnostic checkpoint is kept locally in `localStorage['nebula-run:last-flight']` (never uploaded). The development inspector exposes `graphicsState` and `previousFlightDiagnostic`. See `.logs/crash-recovery.md` for investigation details and limitations.
 
 An original, browser-based 3D on-rails space shooter built with TypeScript, Three.js, Vite, and Playwright. Pilot the STRIX-9 interceptor through an abandoned orbital relay belt, defeat hostile drones, dodge debris, and break the blockade core. The original Kestrel-9 remains available as a fallback.
@@ -115,6 +117,33 @@ On phones, rotate to landscape, tap Launch Sortie, then drag on the flight view 
 
 ## Leaderboard
 
-Open **Leaderboard** from the main menu or result screen for the online top 25 and this device's top 10. Finished real sorties save locally; **Share score online** is optional and publishes the generated guest callsign or an optional 3–16 character public display name, plus the result. Names use a conservative character set and can be hidden by an operator; they are not verified identities. Test fixtures and abandoned runs are excluded. Browser-reported scores are not cheat-proof records.
+After a sortie, open **Save score**, enter your display name, and press **Save**. The optional **Also share on the public leaderboard** checkbox starts unchecked: leave it unchecked to save locally only. Checking it saves the same name locally and submits it online in one action. Cancel/Escape retains the draft but neither saves the edited name nor publishes it; reopening requires fresh consent. Draft text survives asynchronous status updates. Offline runs can still save a local name; blocked storage is explicitly reported as session-only.
+
+Once an online submission is attempted, its name is locked because the server may have accepted it even if the reply was lost. **Retry sharing** resends the identical name and score. Stay on the results screen to retry; pending submissions are not persisted across reloads or leaving the run. Successful sharing selects the online tab when you next open the leaderboard. Existing published names cannot be renamed by this feature; the saved name applies to the current run, not all past records or future runs.
+
+### Difficulty and rankings
+
+Choose **Relaxed**, **Standard**, or **Veteran** before launch. The choice is fixed during flight and kept on restart/return to menu (a page reload defaults to Standard). Standard retains the original gameplay balance. Relaxed uses 20% slower hostile shots, 40% longer fire intervals, 25% less incoming damage, and at most one mission gunner at a time. Veteran uses 15% faster hostile shots, 15% shorter fire intervals, a capped 0.18-second aiming lead, and selected extra attackers. These are existing enemy types, not new assets or AI classes. All modes keep the same player speed, weapon, enemy health, collision sizes, mission duration, and asteroid safe gaps.
+
+Points are awarded once at 0.75× / 1× / 1.25× respectively (a basic drone is 75 / 100 / 125). Both online and local leaderboards show Relaxed, Standard, and Veteran by default. **Archived rankings** opens the previous Standard and Veteran rulesets, read-only and separate from current competition. **Back to current rankings** restores the current difficulty selection. No scores are deleted or merged. No database migration is needed. Deploy client and server together; an outdated API safely falls back to local scores.
+
+Tuning is centralized in `src/game/difficulty.ts`. Inspector snapshots include `difficulty` and `difficultyTuning`. Additional paused fixtures: `relaxed-enemy-fire`, `veteran-enemy-fire`, `relaxed-final-encounter`, and `veteran-final-encounter`. Fixtures never submit records. Difficulty tests live in `tests/difficulty*.spec.ts`; `tests/journey.spec.ts` runs unaccelerated, keyboard-driven full routes for all three modes.
+
+Open **Leaderboard** from the main menu or result screen for the online top 25 and this device's top 10. Finished real sorties save locally. Online publishing is opt-in inside **Save score**, using the displayed 3–16 character name and result. Names use a conservative character set and can be hidden by an operator; they are not verified identities. Test fixtures and abandoned runs are excluded. Browser-reported scores are not cheat-proof records.
 
 Use Node 24.16+. `npm run dev` now starts both Vite and the local API; SQLite development data stays in ignored `.data/`. For deployment, `npm start` serves the built game and API together and requires PostgreSQL plus server-only settings in production. See [LEADERBOARD.md](LEADERBOARD.md) for Replit setup, privacy/abuse limits, database persistence, versioning, moderation and offline behavior. `npm run test:leaderboard` runs backend tests; `npx playwright test tests/leaderboard.spec.ts --project=game` includes a real-time browser sortie and local API/database integration. No Replit deployment is created automatically.
+# Veteran attack patterns
+
+Veteran adds warned three-shot gunner bursts, five-shot fans from selected sweeping drones, and alternating burst/sweep core attacks. Rings warn of bursts; spread ticks warn of fans; horizontal ticks warn of sweeps. Fan/sweep volleys lock a row when the warning starts: changing altitude is useful. Bursts sample a short capped aim prediction per shot; projectiles never home.
+
+Warnings last at least one second, attack starts are staggered, at most two enemies can prepare/fire simultaneously, and hostile shots are capped at 48. Close attackers cancel rather than firing at point-blank range. Player controls, damage, shields, weapons and ordinary enemy health are unchanged.
+
+For future levels, reuse `src/game/attackPatterns.ts` and select sequences in `src/game/scenes/encounters.ts`; do not duplicate attack logic. Development review scenes: `veteran-enemy-fire`, `veteran-enemy-wave`, `veteran-final-encounter`. The inspector includes detached attack state and `activeAttacks`.
+
+Current boards use `signalbreak-4` (Standard), `signalbreak-4-relaxed`, and `signalbreak-4-veteran` because asteroid rewards change scoring in every mode. All previous boards remain read-only under Archived rankings. Deploy client and server together; no database schema migration is required.
+
+## Breakable asteroids
+
+Pale rocks with dark fracture seams take four pulse hits to destroy and award 30 / 40 / 50 points on Relaxed / Standard / Veteran. Dark solid rocks cannot be destroyed. Both intact types cause the existing collision damage; destroyed rocks disappear immediately and their pooled visual fragments cannot collide. Missed rocks award nothing. Each mission debris pair contains one of each type; original positions, flight speeds, radii, safe gaps and seeded randomness are preserved. Distant environment rocks remain decorative, with no targeting or scoring.
+
+`src/game/asteroids.ts` defines durability, base points and reserved `drop: null` metadata for future level variants. No pickups, shield repair, boost or weapon upgrades are implemented. Inspector snapshots expose hazard kind, durability, radius and position; events include asteroid-hit, asteroid-destroyed and score-awarded. Repeatable development fixtures: `asteroid-targets` (aligned breakable plus solid rock) and `asteroid-field` (mixed corridor).

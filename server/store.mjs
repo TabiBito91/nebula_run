@@ -11,6 +11,13 @@ CREATE TABLE IF NOT EXISTS leaderboard_runs (
 CREATE INDEX IF NOT EXISTS leaderboard_rank ON leaderboard_runs(version, score DESC, outcome DESC, created_at, id);
 CREATE INDEX IF NOT EXISTS leaderboard_expiry ON leaderboard_runs(expires);
 CREATE TABLE IF NOT EXISTS leaderboard_limits (key TEXT PRIMARY KEY, hits INTEGER NOT NULL, expires BIGINT NOT NULL);
+CREATE TABLE IF NOT EXISTS game_feedback (
+ id TEXT PRIMARY KEY, payload_hash TEXT NOT NULL, category TEXT NOT NULL,
+ message TEXT NOT NULL, feeling TEXT NOT NULL, context_json TEXT NOT NULL,
+ created_at BIGINT NOT NULL, status TEXT NOT NULL DEFAULT 'new'
+ CHECK(status IN ('new','reviewed','planned','resolved')), private_notes TEXT NOT NULL DEFAULT ''
+);
+CREATE INDEX IF NOT EXISTS feedback_review ON game_feedback(status,created_at);
 `
 
 export async function openStore({ url, file = '.data/leaderboard.sqlite' } = {}) {
@@ -36,6 +43,13 @@ export async function openStore({ url, file = '.data/leaderboard.sqlite' } = {})
   for (const sql of schema.split(';').filter(s => s.trim())) await query(sql)
   return {
     query, close,
+    async feedback(data, payloadHash, now) {
+      // Private reports expire after 180 days; rate-limit keys contain no raw IP.
+      await query('DELETE FROM game_feedback WHERE created_at<$1', [now - 180 * 86400000])
+      await query('DELETE FROM leaderboard_limits WHERE expires<$1', [now])
+      await query('INSERT INTO game_feedback(id,payload_hash,category,message,feeling,context_json,created_at) VALUES($1,$2,$3,$4,$5,$6,$7) ON CONFLICT(id) DO NOTHING', [data.id,payloadHash,data.category,data.message,data.feeling,JSON.stringify(data.context),now])
+      return (await query('SELECT payload_hash FROM game_feedback WHERE id=$1', [data.id]))[0].payload_hash === payloadHash
+    },
     async allow(key, limit, expires) {
       const rows = await query('INSERT INTO leaderboard_limits(key,hits,expires) VALUES($1,1,$2) ON CONFLICT(key) DO UPDATE SET hits=leaderboard_limits.hits+1 RETURNING hits', [key, expires])
       return rows[0].hits <= limit

@@ -33,3 +33,6 @@ playwright-report/
 .env.*
 !.env.example
 .logs/leaderboard-review/
+.logs/difficulty-review/
+.logs/veteran-review/
+.logs/veteran-regression/

@@ -3,6 +3,7 @@ import { Keyboard } from './input/Keyboard'
 import { Touch } from './input/Touch'
 import { Renderer } from './rendering/Renderer'
 import { Hud } from './ui/Hud'
+import { Feedback, feedbackContext } from './feedback/Feedback'
 import { createMission } from './scenes/mission'
 import { GameState } from './state'
 import { updateMission } from './systems/spawning'
@@ -12,8 +13,10 @@ import { Diagnostics } from './Diagnostics'
 import { AudioSession } from './audio/AudioSession'
 import { AudioControls } from './ui/AudioControls'
 import { Leaderboard } from './leaderboard/Leaderboard'
+import { isDifficulty, type Difficulty } from './difficulty'
 
 export class Game {
+  selectedDifficulty: Difficulty = 'standard'
   state = createMission()
   renderer: Renderer
   input: Keyboard
@@ -23,6 +26,7 @@ export class Game {
   readonly diagnostics = new Diagnostics()
   readonly audio: AudioSession
   readonly leaderboard: Leaderboard
+  private feedback = new Feedback()
   private audioControls: AudioControls
   graphicsState: 'ready' | 'lost' | 'failed' = 'ready'
   private accumulator = 0
@@ -38,8 +42,14 @@ export class Game {
     this.touch = new Touch(canvas, () => this.state, () => this.pause())
     this.input = new Keyboard(key => this.key(key), () => this.pause())
     this.leaderboard = new Leaderboard()
-    this.hud = new Hud(ui, () => this.action(), () => this.returnToMenu(), () => { this.input.clear(); this.leaderboard.show() })
-    this.audioControls = new AudioControls(this.audio.manager, () => this.input.clear())
+    this.hud = new Hud(ui, () => this.action(), () => this.returnToMenu(), () => { this.input.clear(); this.leaderboard.show(this.state.difficulty) }, value => {
+      if (this.state.status !== 'title' || !isDifficulty(value)) return
+      this.selectedDifficulty = value
+      this.replace(createMission(false, value))
+    })
+    this.audioControls = new AudioControls(this.audio.manager, () => this.input.clear(),
+      () => { this.pause(); this.feedback.show(feedbackContext(this.state, this.touch.enabled)) },
+      () => { this.input.clear(); this.leaderboard.show(this.state.difficulty) })
     canvas.addEventListener('webglcontextlost', this.contextLost)
     canvas.addEventListener('webglcontextrestored', this.contextRestored)
     this.renderer.webgl.debug.onShaderError = (gl, program, vertex, fragment) => {
@@ -86,7 +96,8 @@ export class Game {
   }
   start(restarted = false) {
     if (this.graphicsState !== 'ready') return
-    this.replace(createMission(true))
+    this.selectedDifficulty = this.state.difficulty
+    this.replace(createMission(true, this.selectedDifficulty))
     this.leaderboard.begin(this.state)
     if (restarted) this.state.event('game-restarted')
   }
@@ -98,7 +109,7 @@ export class Game {
   }
   returnToMenu() {
     if (this.graphicsState !== 'ready') return
-    this.replace(createMission())
+    this.replace(createMission(false, this.selectedDifficulty))
     this.audio.update(this.state, true)
   }
   pause() {
@@ -109,12 +120,13 @@ export class Game {
     if (audiblePause) this.audio.manager.play('pause')
   }
   resume() {
+    if (document.querySelector('dialog[data-feedback][open]')) return
     if (this.graphicsState !== 'ready' || this.touch.portrait) return
     if (this.state.status === 'playing') { this.state.paused = false; this.input.clear(); this.accumulator = 0; this.audio.manager.setPaused(false); this.audio.manager.play('resume') }
   }
   target() {
     const p = this.state.player.position
-    return this.state.enemies.filter(e => e.position.z < -2 && Math.hypot(e.position.x - p.x, e.position.y - p.y) < e.radius + 0.4).sort((a, b) => b.position.z - a.position.z)[0] ?? null
+    return [...this.state.enemies, ...this.state.hazards.filter(h => h.durability !== null && h.durability > 0)].filter(e => e.position.z < -2 && Math.hypot(e.position.x - p.x, e.position.y - p.y) < e.radius + 0.4).sort((a, b) => b.position.z - a.position.z)[0] ?? null
   }
   private frame = (time: number) => {
     if (this.disposed) return
@@ -141,6 +153,7 @@ export class Game {
     this.audio.update(s, this.graphicsState === 'ready')
     this.renderer.render(s, s.paused || s.status !== 'playing' ? 1 : this.accumulator / CONFIG.step, wallDt, simulatedDt)
     this.hud.update(s, this.renderer.reticle, this.target()?.id ?? null, this.renderer.activeShip)
+    this.audioControls.setMenuMode(s.status !== 'playing' || s.paused, s.status === 'title')
     this.leaderboard.update(s)
     s.ready = this.renderer.strix.status !== 'pending'
     this.recordDiagnostic()
@@ -152,6 +165,7 @@ export class Game {
     this.touch.dispose()
     this.audioControls.dispose(); this.audio.dispose()
     this.leaderboard.dispose()
+    this.feedback.dispose()
     this.renderer.webgl.domElement.removeEventListener('webglcontextlost', this.contextLost)
     this.renderer.webgl.domElement.removeEventListener('webglcontextrestored', this.contextRestored)
     this.diagnostics.dispose()

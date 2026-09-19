@@ -1,2 +1,19 @@
 .audio-controls{position:fixed;z-index:20;right:44px;top:69px;font:12px 'Segoe UI',sans-serif;color:#cce5e3;pointer-events:auto}.audio-controls button{background:#10212a;color:#bce5df;border:1px solid #4a797c;padding:6px 12px;cursor:pointer}.audio-controls>button{float:right}.audio-controls section{clear:both;position:relative;top:8px;background:#08131df5;border:1px solid #45696c;padding:20px;width:250px;box-shadow:0 12px 35px #0008}.audio-controls [hidden]{display:none}.audio-controls strong{font-size:10px;letter-spacing:2px}.audio-controls p,.audio-controls small{font-size:11px;color:#91aaa9;line-height:1.5}.audio-controls small{display:block;margin-top:14px}.audio-controls label{display:grid;grid-template-columns:1fr 38px;margin:12px 0;gap:5px}.audio-controls input{grid-row:2;width:190px;accent-color:#76eed2}.audio-controls output{grid-column:2;grid-row:2;text-align:right}.audio-controls :focus-visible{outline:2px solid #76eed2;outline-offset:3px}@media(max-width:850px){.audio-controls{right:22px}}
 .audio-controls label{grid-template-columns:minmax(0,1fr) 38px}.audio-controls input{width:100%;min-width:0;box-sizing:border-box}.audio-controls section{background:#08131d}
+.audio-controls.menu-utilities,.touch-play .audio-controls.menu-utilities{top:20px;right:max(22px,env(safe-area-inset-right));z-index:30}
+.audio-controls.menu-utilities>button{min-height:44px;min-width:90px;font-size:14px}
+.audio-controls [data-utilities]{clear:both;position:relative;top:6px;background:#0b1923;border:1px solid #45696c;padding:6px;min-width:165px;box-shadow:0 12px 35px #0008}
+.audio-controls [data-utilities] button{display:block;text-align:left;width:100%;min-height:44px;border:0;background:transparent;font-size:14px}
+.audio-controls [data-utilities] button:hover{background:#233844}
+.audio-controls [data-utilities] button[hidden]{display:none}
+.menu-screen .mission-tag{visibility:hidden}
+.audio-controls [data-close-audio]{margin-left:8px}
+.menu-screen .telemetry,.menu-screen .mission-info,.menu-screen .score-box,.menu-screen .reticle,.menu-screen .core-bar{visibility:hidden}
+.menu-screen .end-card>small{display:block;margin:8px auto}
+.menu-screen .end-card>[data-menu],.menu-screen .end-card>[data-quit]{display:block!important;border:0;margin:10px auto 0!important;min-height:44px;text-decoration:underline;text-underline-offset:4px}
+.menu-screen .score-result{border:0;margin:10px 0 0;padding:0}
+.menu-screen .score-result button{min-width:160px;min-height:44px;margin:0}
+.menu-screen .score-result p{font-size:11px;margin:6px 0}
+.touch-play .menu-screen .end-card>small{display:none}
+.title-screen #difficulty-help{display:none}
+.title-screen .briefing>.menu-secondary{margin-top:16px;min-height:44px}

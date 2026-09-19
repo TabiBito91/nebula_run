@@ -27,6 +27,7 @@ test('Enable sound recovers after a stalled resume without reloading',async({pag
     },true)
   })
   await page.goto('/')
+  await page.getByRole('button',{name:'More ⋯'}).tap()
   await page.getByRole('button',{name:'Audio',exact:true}).tap()
   const enable=page.getByRole('button',{name:'Enable sound',exact:true})
   await expect(enable).toBeVisible()

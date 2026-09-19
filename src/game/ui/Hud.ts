@@ -1,4 +1,6 @@
 import { GameState } from '../state'
+import { DIFFICULTIES, type Difficulty } from '../difficulty'
+import './difficulty.css'
 
 export class Hud {
   private root: HTMLElement
@@ -14,7 +16,7 @@ export class Hud {
   private core: HTMLElement
   private previousOverlay = ''
   private quitDialog: HTMLDialogElement
-  constructor(root: HTMLElement, action: () => void, returnToMenu: () => void, showLeaderboard: () => void) {
+  constructor(root: HTMLElement, action: () => void, returnToMenu: () => void, showLeaderboard: () => void, selectDifficulty: (value: string) => void) {
     this.root = root
     root.innerHTML = `
       <header class="topbar"><div class="brand"><span class="brand-mark">⌁</span> NEBULA<span class="brand-light">RUN</span><small>SIGNALBREAK</small></div><div class="mission-tag"><i></i> SOLO SORTIE <span> / </span> NR—01</div><button class="pause-button" aria-label="Pause or resume">Ⅱ <span>PAUSE</span></button></header>
@@ -50,6 +52,9 @@ export class Hud {
         ;(document.activeElement as HTMLElement)?.blur()
       }
     })
+    this.overlay.addEventListener('change', event => {
+      if (event.target instanceof HTMLSelectElement && event.target.id === 'difficulty') selectDifficulty(event.target.value)
+    })
   }
   closeQuitDialog() { if (this.quitDialog.open) this.quitDialog.close() }
   update(s: GameState, reticle: { x: number; y: number }, target: string | null, ship: 'strix'|'legacy' = 'legacy') {
@@ -58,19 +63,32 @@ export class Hud {
     this.score.textContent = String(s.score).padStart(6, '0'); this.shields.innerHTML = `${s.player.shields}<span>%</span>`
     this.fill.style.width = `${s.player.shields}%`; this.root.classList.toggle('critical', s.player.shields <= 25)
     this.root.classList.toggle('hit', s.player.invulnerable > 0.75); this.progress.style.width = `${s.progress * 100}%`
-    this.phase.textContent = s.phase.label; this.hint.textContent = s.phase.hint
+    this.phase.textContent = s.phase.label; this.hint.textContent = `${s.phase.hint} · ${s.tuning.label}`
     const seconds = Math.floor(s.elapsed)
     this.time.textContent = `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')} / 02:30`
     this.reticle.style.left = `${reticle.x}%`; this.reticle.style.top = `${reticle.y}%`; this.reticle.classList.toggle('locked', !!target)
     const core = s.enemies.find(e => e.type === 'core'); this.core.hidden = !core
     if (core) this.core.innerHTML = `<span>BLOCKADE CORE <b>${Math.ceil(core.health / core.maxHealth * 100)}%</b></span><div><i style="width:${core.health / core.maxHealth * 100}%"></i></div>`
-    const key = `${s.status}-${s.paused}-${ship}-${s.status === 'playing' || s.status === 'title' ? '' : s.score}`
+    // Keep the native selector alive while changing options with a keyboard.
+    const selector = this.overlay.querySelector<HTMLSelectElement>('#difficulty')
+    if (s.status === 'title' && selector) {
+      selector.value = s.difficulty
+      this.overlay.querySelector('#difficulty-help')!.textContent = `${s.tuning.description}. Locked during flight.`
+    }
+    const key = `${s.status}-${s.paused}-${ship}-${s.status === 'title' ? 'menu' : s.difficulty}-${s.status === 'playing' || s.status === 'title' ? '' : s.score}`
     if (key === this.previousOverlay) return
     this.previousOverlay = key; this.overlay.hidden = s.status === 'playing' && !s.paused
+    this.root.classList.toggle('menu-screen', s.status !== 'playing' || s.paused)
+    this.root.querySelector<HTMLButtonElement>('.pause-button')!.hidden = s.status !== 'playing' || s.paused
     this.root.classList.toggle('title-screen', s.status === 'title')
     if (s.status === 'title') {
       this.overlay.innerHTML = `<div class="briefing"><div class="eyebrow"><span class="live-dot"></span> FLIGHT OPERATIONS / MISSION 001</div><h2>One ship.<br>One last <em>signal.</em></h2><p>The relay has gone dark. Cut through the drone patrol, cross the debris belt, and break the blockade before the signal is lost.</p><div class="mission-chips"><span>02:30 TRANSIT</span><span>OUTER RELAY BELT</span></div><button class="launch">LAUNCH SORTIE <span>↗</span></button><div class="key-hint">PRESS ENTER TO LAUNCH</div><div class="brief-controls"><div><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd><span>STEER</span></div><div><kbd>SPACE</kbd><span>FIRE</span></div></div></div><div class="brief-aside"><span>KESTREL—9</span><small>LIGHT COURIER / COMBAT RETROFIT</small><div class="ship-line"></div><p>Keep moving. Hold your fire line.<br>The core is your only way through.</p></div>`
       this.overlay.querySelector('.brief-aside span')!.textContent=shipName
+      const settings = document.createElement('div')
+      settings.className = 'difficulty-settings'
+      settings.innerHTML = `<label for="difficulty">Difficulty</label><select id="difficulty" aria-describedby="difficulty-help">${(Object.keys(DIFFICULTIES) as Difficulty[]).map(id => `<option value="${id}">${DIFFICULTIES[id].label}</option>`).join('')}</select><small id="difficulty-help">${s.tuning.description}. Locked during flight.</small>`
+      settings.querySelector('select')!.value = s.difficulty
+      this.overlay.querySelector('.launch')!.before(settings)
       this.overlay.querySelector('h2')!.firstChild!.textContent = 'One ship. '
       this.overlay.querySelector('.brief-aside small')!.textContent=ship==='strix'?'STX9-A1 / RELAY INTERCEPTOR':'LIGHT COURIER / COMBAT RETROFIT'
     } else if (s.status === 'playing') {
@@ -80,13 +98,17 @@ export class Hud {
       this.overlay.innerHTML = `<div class="end-card"><div class="eyebrow">${won ? 'MISSION COMPLETE / SIGNAL RESTORED' : 'SORTIE ENDED / SIGNAL LOST'}</div><h2>${won ? 'The way is open.' : 'Out of the fight.'}</h2><p>${won ? 'Blockade disabled. The relay is transmitting again.' : s.reason}</p><div class="final-score">${String(s.score).padStart(6, '0')}<small>FLIGHT SCORE</small></div><button class="launch">FLY AGAIN <span>↗</span></button><small>PRESS R TO RESTART</small></div>`
     }
     if (s.status !== 'title') {
+      const mode = document.createElement('p')
+      mode.className = 'difficulty-summary'
+      mode.textContent = `${s.tuning.label} · ${s.tuning.score}× score`
+      this.overlay.querySelector('.end-card h2')!.after(mode)
       const menu = document.createElement('button')
       menu.className = 'menu-secondary'
       menu.textContent = s.status === 'playing' ? 'Return to Main Menu' : 'Main Menu'
       menu.setAttribute(s.status === 'playing' ? 'data-quit' : 'data-menu', '')
       this.overlay.querySelector('.end-card')!.append(menu)
     }
-    if (s.status !== 'playing') {
+    if (s.status === 'title') {
       const board = document.createElement('button')
       board.className='menu-secondary'; board.textContent='Leaderboard'; board.dataset.leaderboard=''
       this.overlay.querySelector(s.status === 'title' ? '.briefing':'.end-card')!.append(board)

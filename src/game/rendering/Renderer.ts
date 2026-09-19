@@ -51,15 +51,16 @@ export class Renderer {
     mesh.position.set(THREE.MathUtils.lerp(entity.previous.x, entity.position.x, alpha), THREE.MathUtils.lerp(entity.previous.y, entity.position.y, alpha), THREE.MathUtils.lerp(entity.previous.z, entity.position.z, alpha))
   }
   private burst(event: GameEvent) {
-    if (event.type !== 'enemy-destroyed' || !event.position) return
+    if (!['enemy-destroyed', 'asteroid-destroyed'].includes(event.type) || !event.position) return
     const pos = event.position as { x: number; y: number; z: number }
     let count = 0
     for (const p of this.effects) {
       if (p.life > 0) continue
       const angle = count * 2.399
+      p.mesh.material = event.type === 'asteroid-destroyed' ? this.models.materials.fractured : p.mesh.userData.originalMaterial
       p.life = 0.8; p.mesh.position.set(pos.x, pos.y, pos.z); p.mesh.visible = true
       p.vx = Math.cos(angle) * 6; p.vy = Math.sin(angle) * 6; p.vz = Math.sin(count * 3.7) * 5
-      if (++count === 18) break
+      if (++count === (event.type === 'asteroid-destroyed' ? 10 : 18)) break
     }
   }
   render(s: GameState, alpha: number, wallDt: number, simulatedDt: number) {
@@ -86,16 +87,31 @@ export class Renderer {
       active.add(entity.id)
       let mesh = this.meshes.get(entity.id)
       if (!mesh) {
-        if ('type' in entity) mesh = this.models.enemy(entity.type)
+        if ('type' in entity) mesh = this.models.enemy(entity.type, !!entity.attack)
         else if ('owner' in entity) mesh = this.models.mesh('box', entity.owner === 'player' ? 'teal' : 'amber', entity.owner === 'player' ? [0.09, 0.09, 2.1] : [0.3, 0.3, 1.1])
-        else mesh = this.models.mesh('rock', 'rock', [entity.radius, entity.radius * 0.85, entity.radius])
+        else mesh = this.models.asteroid(entity.radius, entity.kind === 'fractured')
         this.meshes.set(entity.id, mesh); this.scene.add(mesh)
       }
       this.position(mesh, entity, alpha)
-      if ('angle' in entity) mesh.rotation.set(entity.angle, entity.angle * 0.7, 0)
+      if ('angle' in entity) {
+        mesh.rotation.set(entity.angle, entity.angle * 0.7, 0)
+        mesh.traverse(child => { if (child instanceof THREE.Mesh) child.material = entity.flash > 0 ? this.models.materials.white : child.userData.originalMaterial })
+      }
       if ('type' in entity) {
         mesh.rotation.z = entity.type === 'core' ? entity.age * 0.13 : Math.sin(entity.age * 2) * 0.12
         mesh.scale.setScalar(entity.telegraph ? 1 + Math.sin(s.elapsed * 24) * 0.06 : 1)
+        const warning = mesh.getObjectByName('attack-warning')
+        if (warning && entity.attack) {
+          const pattern = entity.attack.sequence[entity.attack.index % entity.attack.sequence.length]
+          warning.visible = entity.telegraph
+          warning.rotation.z = -mesh.rotation.z
+          warning.scale.setScalar(entity.type === 'core' ? 2.4 : 1)
+          warning.children[0].visible = pattern === 'burst'
+          warning.children.slice(1).forEach((tick, i) => {
+            tick.visible = pattern !== 'burst'
+            tick.rotation.z = pattern === 'fan' ? (i - 2) * -0.25 : Math.PI / 2
+          })
+        }
         mesh.traverse(child => { if (child instanceof THREE.Mesh) child.material = entity.flash > 0 ? this.models.materials.white : child.userData.originalMaterial })
       }
     }

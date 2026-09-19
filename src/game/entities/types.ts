@@ -1,3 +1,5 @@
+import type { Attack } from '../attackPatterns'
+import type { AsteroidKind } from '../asteroids'
 export type Vec3 = { x: number; y: number; z: number }
 export type EnemyType = 'straight' | 'sweep' | 'gunner' | 'core'
 export type Entity = {
@@ -5,10 +7,10 @@ export type Entity = {
 }
 export type Enemy = Entity & {
   type: EnemyType; health: number; maxHealth: number; age: number; originX: number;
-  fireCooldown: number; flash: number; telegraph: boolean;
+  fireCooldown: number; flash: number; telegraph: boolean; attack?: Attack;
 }
 export type Projectile = Entity & { owner: 'player' | 'enemy'; damage: number; ttl: number }
-export type Hazard = Entity & { angle: number }
+export type Hazard = Entity & { angle: number; kind: AsteroidKind; durability: number | null; flash: number }
 export type Player = Entity & {
   rotation: Vec3; shields: number; weaponCooldown: number; invulnerable: number;
 }

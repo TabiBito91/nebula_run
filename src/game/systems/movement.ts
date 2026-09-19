@@ -20,9 +20,10 @@ export function move(s: GameState, input: Controls, dt: number) {
     e.position.z += e.velocity.z * dt
     if (e.type === 'sweep') e.position.x = e.originX + Math.sin(e.age * 1.4) * 2.3
     e.fireCooldown -= dt
-    e.telegraph = (e.type === 'gunner' || e.type === 'core') && e.fireCooldown < 0.7
+    if (!e.attack) e.telegraph = (e.type === 'gunner' || e.type === 'core') && e.fireCooldown < 0.7
   }
   for (const h of s.hazards) {
+    h.flash = Math.max(0, h.flash - dt)
     h.previous = { ...h.position }
     h.position.z += h.velocity.z * dt
     h.angle += dt * 0.22
